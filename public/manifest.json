@@ -1,7 +1,7 @@
 {
-  "name": "Heizungssteuerung 2025",
-  "short_name": "Heizung",
-  "description": "Intelligente Heizungs- und Warmwassersteuerung",
+  "name": "Edupe Digital",
+  "short_name": "Edupe",
+  "description": "Edupe Digital",
   "theme_color": "#0ea5e9",
   "background_color": "#f9fafb",
   "display": "standalone",
