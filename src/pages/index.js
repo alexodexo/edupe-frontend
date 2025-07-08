@@ -1,253 +1,173 @@
-// pages/index.js
+// src/pages/index.js
 import Head from 'next/head'
-import React from 'react'
-import { motion } from 'framer-motion'
-import StatusCard from '@/components/StatusCard'
-import { useEM3Data, useTemperatureData, useWeatherData } from '@/hooks/useRealtimeData'
-import {
-  BeakerIcon,
-  FireIcon,
-  SunIcon,
-  BoltIcon,
+import { 
+  UsersIcon, 
+  ClipboardDocumentCheckIcon,
+  ClockIcon,
   CurrencyEuroIcon,
-  CloudIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
+import Layout from '@/components/Layout'
+
+// Dummy data
+const stats = [
+  { name: 'Aktive Helfer', value: '156', change: '+12%', changeType: 'increase', icon: UsersIcon },
+  { name: 'Offene Fälle', value: '23', change: '-5%', changeType: 'decrease', icon: ClipboardDocumentCheckIcon },
+  { name: 'Stunden diese Woche', value: '1,234', change: '+18%', changeType: 'increase', icon: ClockIcon },
+  { name: 'Umsatz diesen Monat', value: '€45,678', change: '+23%', changeType: 'increase', icon: CurrencyEuroIcon },
+]
+
+const recentRequests = [
+  { id: 1, jugendamt: 'Jugendamt Frankfurt', type: 'Familienhelfer', status: 'Neu', priority: 'Hoch', time: 'vor 5 Min.' },
+  { id: 2, jugendamt: 'Jugendamt Offenbach', type: 'Erziehungsbeistand', status: 'In Bearbeitung', priority: 'Mittel', time: 'vor 15 Min.' },
+  { id: 3, jugendamt: 'Jugendamt Hanau', type: 'Familienhelfer', status: 'Zugewiesen', priority: 'Normal', time: 'vor 1 Std.' },
+  { id: 4, jugendamt: 'Jugendamt Darmstadt', type: 'Sozialpädagoge', status: 'Neu', priority: 'Hoch', time: 'vor 2 Std.' },
+]
+
+const topHelpers = [
+  { id: 1, name: 'Anna Schmidt', cases: 12, hours: 156, rating: 4.9 },
+  { id: 2, name: 'Michael Weber', cases: 10, hours: 142, rating: 4.8 },
+  { id: 3, name: 'Sarah Johnson', cases: 9, hours: 128, rating: 5.0 },
+  { id: 4, name: 'Thomas Müller', cases: 8, hours: 118, rating: 4.7 },
+]
 
 export default function Dashboard() {
-  const { data: em3Data, isLoading: em3Loading } = useEM3Data()
-  const { data: tempData, isLoading: tempLoading } = useTemperatureData()
-  const { data: weatherData, isLoading: weatherLoading } = useWeatherData()
-
-  // Calculate daily costs (example calculation)
-  const calculateDailyCost = () => {
-    if (!em3Data) return '0.00'
-    const kWh = (em3Data.total_power || 0) / 1000 * 24 // Rough estimate
-    const cost = kWh * 0.25 // 0.25€ per kWh
-    return cost.toFixed(2)
-  }
-
-  // Status data for overview table
-  const statusItems = [
-    {
-      category: 'Warmwasser-Betrieb',
-      items: [
-        {
-          name: 'Warmwasser Nachtabsenkung',
-          status: 'active',
-          function: 'von 22:30 Uhr bis 05:30 Uhr',
-          details: 'nächste Änderung: 22:30 Uhr',
-        },
-        {
-          name: 'Warmwasser Überschuss-Strom',
-          status: 'active',
-          function: 'PV Anlage produzierter Überschuss Strom',
-          details: `aktiv, wird aktuell mit ${em3Data?.total_power || 0} Watt genutzt`,
-        },
-        {
-          name: 'Warmwasser Sonnen Forecast',
-          status: weatherData?.todaySunshinePercentage > 70 ? 'active' : 'warning',
-          function: 'Temperaturreduzierung von -3°C aktiv',
-          details: `${weatherData?.todaySunshinePercentage || 0}% Sonnenschein erwartet`,
-        },
-      ],
-    },
-    {
-      category: 'Heizungs-Betrieb',
-      items: [
-        {
-          name: 'Heizung',
-          status: 'warning',
-          function: 'aktuelle Nutzung: 0 Watt',
-          details: 'bis heute pro Tag 3,88 kWh - 0,95 € verbraucht',
-        },
-        {
-          name: 'Heizung Nachtabsenkung',
-          status: 'active',
-          function: 'von 21:30 Uhr bis 06:00 Uhr',
-          details: 'nächste Änderung: 21:30 Uhr',
-        },
-        {
-          name: 'Heizung Wetter Forecast',
-          status: 'active',
-          function: 'Temperaturreduzierung Vorlauf von -5°C aktiv',
-          details: `aktiv, ${weatherData?.todaySunshinePercentage || 0}% Sonnenschein bei ${weatherData?.current?.temperature || 0}°C erwartet`,
-        },
-      ],
-    },
-  ]
-
   return (
-    <>
+    <Layout>
       <Head>
-        <title>Dashboard - Heizungssteuerung</title>
+        <title>Dashboard - Edupe Digital</title>
       </Head>
 
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Übersicht aller Systeme</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Willkommen zurück! Hier ist Ihre Übersicht.</p>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <StatusCard
-            title="Warmwasser"
-            value={tempData?.t1?.toFixed(1) || '--'}
-            unit="°C"
-            icon={BeakerIcon}
-            color="primary"
-            loading={tempLoading}
-          />
-          <StatusCard
-            title="Vorlauf Heizung"
-            value={tempData?.t2?.toFixed(1) || '--'}
-            unit="°C"
-            icon={FireIcon}
-            color="warning"
-            loading={tempLoading}
-          />
-          <StatusCard
-            title="Wetter"
-            value={`${weatherData?.todaySunshinePercentage || '--'}%`}
-            unit="☀️"
-            icon={SunIcon}
-            color="success"
-            loading={weatherLoading}
-          />
-          <StatusCard
-            title="Außentemperatur"
-            value={weatherData?.current?.temperature?.toFixed(1) || '--'}
-            unit="°C"
-            icon={CloudIcon}
-            color="primary"
-            loading={weatherLoading}
-          />
-          <StatusCard
-            title="Heutige Kosten"
-            value={`€${calculateDailyCost()}`}
-            icon={CurrencyEuroIcon}
-            color="error"
-            loading={em3Loading}
-          />
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat) => (
+            <div key={stat.name} className="card p-6">
+              <div className="flex items-center justify-between">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <stat.icon className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex items-center gap-1 text-sm">
+                  {stat.changeType === 'increase' ? (
+                    <ArrowUpIcon className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <ArrowDownIcon className="w-4 h-4 text-red-600" />
+                  )}
+                  <span className={stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}>
+                    {stat.change}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                <p className="text-sm text-gray-600 mt-1">{stat.name}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Current Power Usage */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="card p-6"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Aktueller Stromverbrauch</h2>
-            <BoltIcon className="w-5 h-5 text-gray-400" />
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Requests */}
+          <div className="lg:col-span-2 card">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Aktuelle Anfragen</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Jugendamt</th>
+                    <th>Typ</th>
+                    <th>Status</th>
+                    <th>Priorität</th>
+                    <th>Zeit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentRequests.map((request) => (
+                    <tr key={request.id}>
+                      <td className="font-medium">{request.jugendamt}</td>
+                      <td>{request.type}</td>
+                      <td>
+                        <span className={`badge ${
+                          request.status === 'Neu' ? 'badge-yellow' :
+                          request.status === 'In Bearbeitung' ? 'badge-blue' :
+                          'badge-green'
+                        }`}>
+                          {request.status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          request.priority === 'Hoch' ? 'badge-red' :
+                          request.priority === 'Mittel' ? 'badge-yellow' :
+                          'badge-gray'
+                        }`}>
+                          {request.priority}
+                        </span>
+                      </td>
+                      <td className="text-gray-500">{request.time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          
-          {em3Loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="skeleton h-20 rounded-xl" />
+
+          {/* Top Helpers */}
+          <div className="card">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Top Helfer</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              {topHelpers.map((helper, index) => (
+                <div key={helper.id} className="flex items-center gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-gray-600">#{index + 1}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{helper.name}</p>
+                    <p className="text-sm text-gray-500">{helper.cases} Fälle • {helper.hours} Std.</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1">
+                      <span className="text-yellow-500">★</span>
+                      <span className="text-sm font-medium">{helper.rating}</span>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-xl p-4">
-                <p className="text-sm text-primary-600 mb-1">Gesamt</p>
-                <p className="text-2xl font-bold text-primary-700">
-                  {em3Data?.total_power?.toFixed(0) || 0} W
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-600 mb-1">Phase A</p>
-                <p className="text-xl font-semibold text-gray-700">
-                  {em3Data?.a_power?.toFixed(0) || 0} W
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-600 mb-1">Phase B</p>
-                <p className="text-xl font-semibold text-gray-700">
-                  {em3Data?.b_power?.toFixed(0) || 0} W
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-600 mb-1">Phase C</p>
-                <p className="text-xl font-semibold text-gray-700">
-                  {em3Data?.c_power?.toFixed(0) || 0} W
-                </p>
-              </div>
-            </div>
-          )}
-        </motion.div>
+          </div>
+        </div>
 
-        {/* Status Overview Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card overflow-hidden"
-        >
-          <div className="px-6 py-4 bg-gradient-to-r from-primary-500 to-primary-600">
-            <h2 className="text-lg font-semibold text-white">Übersicht der Funktionen</h2>
+        {/* Activity Chart Placeholder */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Aktivitätsübersicht</h2>
+            <select className="px-4 py-2 rounded-lg border border-gray-200 text-sm">
+              <option>Letzte 7 Tage</option>
+              <option>Letzte 30 Tage</option>
+              <option>Letzte 90 Tage</option>
+            </select>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Betrieb
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Funktion
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Details
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {statusItems.map((category) => (
-                  <React.Fragment key={category.category}>
-                    <tr className="bg-gray-50">
-                      <td colSpan="4" className="px-6 py-2 text-sm font-medium text-gray-700">
-                        {category.category}
-                      </td>
-                    </tr>
-                    {category.items.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`status-dot ${
-                              item.status === 'active'
-                                ? 'status-active'
-                                : item.status === 'warning'
-                                ? 'status-warning'
-                                : 'status-inactive'
-                            }`}
-                          />
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {item.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {item.function}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {item.details}
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500">Chart-Komponente wird hier angezeigt</p>
+            </div>
           </div>
-        </motion.div>
+        </div>
       </div>
-    </>
+    </Layout>
   )
 }

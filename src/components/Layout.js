@@ -1,149 +1,136 @@
-// components/Layout.js
+// src/components/Layout.js
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   HomeIcon,
-  BeakerIcon,
-  FireIcon,
-  ChartBarIcon,
+  UsersIcon,
+  ClipboardDocumentListIcon,
+  DocumentTextIcon,
+  CurrencyEuroIcon,
   Cog6ToothIcon,
   Bars3Icon,
   XMarkIcon,
+  BellIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
-  { name: 'Übersicht', href: '/', icon: HomeIcon },
-  { name: 'Warmwasser', href: '/warmwater', icon: BeakerIcon },
-  { name: 'Heizung', href: '/heating', icon: FireIcon },
-  { name: 'Statistiken', href: '/statistics', icon: ChartBarIcon },
-  { name: 'System', href: '/system', icon: Cog6ToothIcon },
+  { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Helfer', href: '/helpers', icon: UsersIcon },
+  { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon },
+  { name: 'Berichte', href: '/reports', icon: DocumentTextIcon },
+  { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon },
+  { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon },
 ]
 
 export default function Layout({ children }) {
   const router = useRouter()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="glass sticky top-0 z-50 safe-top">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 transform transition-transform duration-300 lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="flex h-full flex-col">
+          {/* Logo */}
+          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 text-white shadow-lg">
-                <FireIcon className="w-6 h-6" />
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-lg">E</span>
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Heizungssteuerung</h1>
-                <p className="text-xs text-gray-500">Smart Home Control</p>
+                <h1 className="text-lg font-semibold text-gray-900">Edupe Digital</h1>
+                <p className="text-xs text-gray-500">Helfervermittlung</p>
               </div>
             </div>
-
-            {/* Mobile menu button */}
             <button
-              type="button"
-              className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
             >
-              {mobileMenuOpen ? (
-                <XMarkIcon className="w-6 h-6 text-gray-700" />
-              ) : (
-                <Bars3Icon className="w-6 h-6 text-gray-700" />
-              )}
+              <XMarkIcon className="w-5 h-5 text-gray-600" />
             </button>
           </div>
-        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:block border-t border-gray-100">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex space-x-1 py-2">
-              {navigation.map((item) => {
-                const isActive = router.pathname === item.href
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`nav-item ${isActive ? 'nav-item-active' : ''}`}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span>{item.name}</span>
-                  </Link>
-                )
-              })}
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-4">
+            {navigation.map((item) => {
+              const isActive = router.pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <item.icon className="w-5 h-5 mr-3" />
+                  {item.name}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* User profile */}
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                <span className="text-gray-600 font-medium">MA</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">Max Admin</p>
+                <p className="text-xs text-gray-500">Administrator</p>
+              </div>
             </div>
           </div>
-        </nav>
-      </header>
+        </div>
+      </div>
 
-      {/* Mobile Navigation */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/30 z-40 lg:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed right-0 top-0 h-full w-72 glass-dark z-50 lg:hidden safe-right"
+      {/* Main content */}
+      <div className="lg:pl-72">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+          <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-xl font-semibold text-white">Navigation</h2>
-                  <button
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <XMarkIcon className="w-6 h-6 text-white" />
-                  </button>
-                </div>
-                <nav className="space-y-1">
-                  {navigation.map((item) => {
-                    const isActive = router.pathname === item.href
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                          isActive
-                            ? 'bg-white/20 text-white font-medium'
-                            : 'text-gray-300 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <item.icon className="w-5 h-5" />
-                        <span>{item.name}</span>
-                      </Link>
-                    )
-                  })}
-                </nav>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <Bars3Icon className="w-6 h-6 text-gray-600" />
+            </button>
 
-      {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8 py-6 pb-20 safe-bottom">
-        <motion.div
-          key={router.pathname}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-        >
+            <div className="flex-1 flex items-center gap-4 max-w-2xl">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Suchen..."
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="relative p-2 rounded-lg hover:bg-gray-100">
+                <BellIcon className="w-6 h-6 text-gray-600" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="p-4 sm:p-6">
           {children}
-        </motion.div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
