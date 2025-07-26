@@ -10,10 +10,16 @@ import {
   CurrencyEuroIcon,
   Cog6ToothIcon,
   Bars3Icon,
-  XMarkIcon,
   BellIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
+
+// Simple XMarkIcon component as fallback
+const XMarkIcon = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
