@@ -1,30 +1,25 @@
 // src/pages/index.js
 import { useState, useMemo } from 'react'
 import Head from 'next/head'
-
-
-
+import Layout from '@/components/Layout'
+import { useDashboardData } from '@/hooks/useData'
+import { useAuth } from '@/lib/auth'
+import { LoadingPage, ErrorCard } from '@/components/Error'
 import {
   UsersIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
   CurrencyEuroIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   ChartBarIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   CalendarDaysIcon,
-  MapPinIcon,
   BellIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  PlusIcon
 } from '@heroicons/react/24/outline'
-import Layout from '@/components/Layout'
 import {
-  DUMMY_CASES,
-  DUMMY_SERVICES,
-  DUMMY_HELPERS,
   CASE_STATUS,
   SERVICE_STATUS,
   HELPER_AVAILABILITY,
@@ -35,41 +30,26 @@ import {
 } from '@/lib/types'
 
 export default function Dashboard() {
+  const { userRole, userProfile } = useAuth()
   const [timeRange, setTimeRange] = useState('week') // week, month, quarter
+  
+  const { 
+    stats, 
+    recentActivities, 
+    urgentNotifications, 
+    isLoading,
+    error,
+    refresh 
+  } = useDashboardData()
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const activeCases = DUMMY_CASES.filter(c => c.status === CASE_STATUS.ACTIVE).length
-    const availableHelpers = DUMMY_HELPERS.filter(h => h.availability === HELPER_AVAILABILITY.AVAILABLE).length
-    const totalHelpers = DUMMY_HELPERS.length
-
-    // This week's hours (mock calculation)
-    const thisWeekHours = DUMMY_SERVICES.reduce((sum, service) => {
-      const serviceDate = new Date(service.date)
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-
-      if (serviceDate >= weekAgo && serviceDate <= now) {
-        return sum + service.duration
-      }
-      return sum
-    }, 0)
-
-    // This month's revenue (mock calculation)
-    const thisMonthRevenue = DUMMY_SERVICES.reduce((sum, service) => {
-      const serviceDate = new Date(service.date)
-      const now = new Date()
-
-      if (serviceDate.getMonth() === now.getMonth() && serviceDate.getFullYear() === now.getFullYear()) {
-        return sum + service.costs
-      }
-      return sum
-    }, 0)
+  // Calculate trend-like stats (simplified for demo)
+  const statsWithTrends = useMemo(() => {
+    if (!stats) return []
 
     return [
       {
         name: 'Verfügbare Helfer',
-        value: `${availableHelpers}/${totalHelpers}`,
+        value: `${stats.helpers.available}/${stats.helpers.total}`,
         change: '+3',
         changeType: 'increase',
         icon: UsersIcon,
@@ -77,7 +57,7 @@ export default function Dashboard() {
       },
       {
         name: 'Aktive Fälle',
-        value: activeCases.toString(),
+        value: stats.cases.active.toString(),
         change: '+2',
         changeType: 'increase',
         icon: ClipboardDocumentCheckIcon,
@@ -85,7 +65,7 @@ export default function Dashboard() {
       },
       {
         name: 'Stunden diese Woche',
-        value: Math.round(thisWeekHours).toString(),
+        value: Math.round(stats.services.totalHours).toString(),
         change: '+18%',
         changeType: 'increase',
         icon: ClockIcon,
@@ -93,131 +73,14 @@ export default function Dashboard() {
       },
       {
         name: 'Umsatz diesen Monat',
-        value: formatCurrency(thisMonthRevenue),
+        value: formatCurrency(stats.services.totalCosts),
         change: '+23%',
         changeType: 'increase',
         icon: CurrencyEuroIcon,
         description: 'Abrechenbare Leistungen'
       }
     ]
-  }, [])
-
-  // Recent activities
-  const recentActivities = useMemo(() => {
-    const activities = []
-
-    // Add new cases
-    DUMMY_CASES.forEach(case_ => {
-      activities.push({
-        id: `case-${case_.id}`,
-        type: 'case_created',
-        title: `Neuer Fall erstellt: ${case_.title}`,
-        description: `${case_.jugendamt.name}`,
-        time: case_.createdAt,
-        icon: ClipboardDocumentCheckIcon,
-        color: 'blue'
-      })
-    })
-
-    // Add recent services
-    DUMMY_SERVICES.forEach(service => {
-      const case_ = DUMMY_CASES.find(c => c.id === service.caseId)
-      const helper = DUMMY_HELPERS.find(h => h.id === service.helperId)
-
-      activities.push({
-        id: `service-${service.id}`,
-        type: 'service_completed',
-        title: `Leistung erbracht: ${formatDuration(service.duration)}`,
-        description: `${helper?.firstName} ${helper?.lastName} • ${case_?.caseNumber}`,
-        time: service.createdAt,
-        icon: CheckCircleIcon,
-        color: 'green'
-      })
-    })
-
-    return activities
-      .sort((a, b) => new Date(b.time) - new Date(a.time))
-      .slice(0, 8)
-  }, [])
-
-  // Urgent notifications
-  const urgentNotifications = useMemo(() => {
-    const notifications = []
-
-    // Check for urgent cases
-    const urgentCases = DUMMY_CASES.filter(c => c.priority === PRIORITY_LEVELS.URGENT && c.status === CASE_STATUS.ACTIVE)
-    urgentCases.forEach(case_ => {
-      notifications.push({
-        id: `urgent-${case_.id}`,
-        type: 'urgent_case',
-        title: 'Dringender Fall benötigt Aufmerksamkeit',
-        description: `${case_.title} - ${case_.jugendamt.name}`,
-        priority: 'high',
-        action: 'case_view',
-        actionData: case_.id
-      })
-    })
-
-    // Check for pending service approvals
-    const pendingServices = DUMMY_SERVICES.filter(s => s.status === SERVICE_STATUS.SUBMITTED)
-    if (pendingServices.length > 0) {
-      notifications.push({
-        id: 'pending-services',
-        type: 'pending_approvals',
-        title: `${pendingServices.length} Leistungen zur Freigabe`,
-        description: 'Stundeneinträge warten auf Genehmigung',
-        priority: 'medium',
-        action: 'billing_view'
-      })
-    }
-
-    // Check for helpers without recent activity
-    const inactiveHelpers = DUMMY_HELPERS.filter(helper => {
-      const recentServices = DUMMY_SERVICES.filter(service => {
-        const serviceDate = new Date(service.date)
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        return service.helperId === helper.id && serviceDate >= weekAgo
-      })
-      return helper.availability === HELPER_AVAILABILITY.AVAILABLE && recentServices.length === 0
-    })
-
-    if (inactiveHelpers.length > 0) {
-      notifications.push({
-        id: 'inactive-helpers',
-        type: 'helper_inactive',
-        title: `${inactiveHelpers.length} Helfer ohne aktuelle Einsätze`,
-        description: 'Verfügbare Helfer könnten neue Fälle übernehmen',
-        priority: 'low',
-        action: 'helpers_view'
-      })
-    }
-
-    return notifications
-  }, [])
-
-  // Top performing helpers
-  const topHelpers = useMemo(() => {
-    return DUMMY_HELPERS
-      .map(helper => {
-        const helperServices = DUMMY_SERVICES.filter(s => s.helperId === helper.id)
-        const thisMonthHours = helperServices.reduce((sum, service) => {
-          const serviceDate = new Date(service.date)
-          const now = new Date()
-          if (serviceDate.getMonth() === now.getMonth()) {
-            return sum + service.duration
-          }
-          return sum
-        }, 0)
-
-        return {
-          ...helper,
-          thisMonthHours,
-          thisMonthRevenue: thisMonthHours * helper.hourlyRate
-        }
-      })
-      .sort((a, b) => b.thisMonthHours - a.thisMonthHours)
-      .slice(0, 5)
-  }, [])
+  }, [stats])
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -235,6 +98,26 @@ export default function Dashboard() {
       case 'helper_assigned': return UsersIcon
       default: return BellIcon
     }
+  }
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <LoadingPage message="Lade Dashboard-Daten..." />
+      </Layout>
+    )
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <ErrorCard 
+          title="Fehler beim Laden des Dashboards"
+          message="Die Dashboard-Daten konnten nicht geladen werden."
+          onRetry={refresh}
+        />
+      </Layout>
+    )
   }
 
   return (
@@ -266,7 +149,7 @@ export default function Dashboard() {
         </div>
 
         {/* Urgent Notifications */}
-        {urgentNotifications.length > 0 && (
+        {urgentNotifications && urgentNotifications.length > 0 && (
           <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <ExclamationTriangleIcon className="w-5 h-5 text-orange-600" />
@@ -288,7 +171,7 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, index) => (
+          {statsWithTrends.map((stat, index) => (
             <div key={stat.name} className="card p-6 relative overflow-hidden">
               {/* Background decoration */}
               <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-full -mr-12 -mt-12 opacity-50" />
@@ -328,80 +211,107 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Letzte Aktivitäten</h2>
             </div>
             <div className="divide-y divide-gray-100">
-              {recentActivities.map((activity) => {
-                const Icon = getActivityIcon(activity.type)
-                return (
-                  <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${activity.color === 'blue' ? 'bg-blue-50 text-blue-600' :
-                          activity.color === 'green' ? 'bg-green-50 text-green-600' :
-                            'bg-gray-50 text-gray-600'
-                        }`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm">{activity.title}</p>
-                        <p className="text-gray-600 text-sm">{activity.description}</p>
-                        
-
+              {recentActivities && recentActivities.length > 0 ? (
+                recentActivities.map((activity) => {
+                  const Icon = getActivityIcon(activity.type)
+                  return (
+                    <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${activity.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                            activity.color === 'green' ? 'bg-green-50 text-green-600' :
+                              'bg-gray-50 text-gray-600'
+                          }`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm">{activity.title}</p>
+                          <p className="text-gray-600 text-sm">{activity.description}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatDateTime(activity.time)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              ) : (
+                <div className="p-8 text-center">
+                  <BellIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600">Keine aktuellen Aktivitäten</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Top Helpers */}
-          <div className="card">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Top Helfer diesen Monat</h2>
+          {/* Sidebar with Quick Actions */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Schnellaktionen</h2>
+              <div className="space-y-3">
+                {userRole === 'admin' && (
+                  <>
+                    <button className="btn-secondary w-full justify-start">
+                      <ClipboardDocumentCheckIcon className="w-5 h-5" />
+                      Neuen Fall erstellen
+                    </button>
+                    <button className="btn-secondary w-full justify-start">
+                      <UsersIcon className="w-5 h-5" />
+                      Helfer hinzufügen
+                    </button>
+                  </>
+                )}
+                {(userRole === 'admin' || userRole === 'jugendamt') && (
+                  <>
+                    <button className="btn-secondary w-full justify-start">
+                      <ClockIcon className="w-5 h-5" />
+                      Stunden freigeben
+                    </button>
+                    <button className="btn-secondary w-full justify-start">
+                      <CurrencyEuroIcon className="w-5 h-5" />
+                      Rechnung erstellen
+                    </button>
+                  </>
+                )}
+                {userRole === 'helper' && (
+                  <>
+                    <button className="btn-secondary w-full justify-start">
+                      <PlusIcon className="w-5 h-5" />
+                      Leistung eintragen
+                    </button>
+                    <button className="btn-secondary w-full justify-start">
+                      <CalendarDaysIcon className="w-5 h-5" />
+                      Urlaub beantragen
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="p-6 space-y-4">
-              {topHelpers.map((helper, index) => (
-                <div key={helper.id} className="flex items-center gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-semibold text-gray-700">#{index + 1}</span>
+
+            {/* Statistics Summary */}
+            {stats && (
+              <div className="card p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Übersicht</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Gesamt Fälle</span>
+                    <span className="font-semibold">{stats.cases.total}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
-                      {helper.firstName} {helper.lastName}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>{Math.round(helper.thisMonthHours)}h</span>
-                      <span>{formatCurrency(helper.thisMonthRevenue)}</span>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Aktive Helfer</span>
+                    <span className="font-semibold">{stats.helpers.available}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-yellow-500">★</span>
-                    <span className="text-sm font-medium text-gray-700">{helper.rating}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Pending Services</span>
+                    <span className="font-semibold">{stats.services.pending}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Monatsumsatz</span>
+                    <span className="font-semibold">{formatCurrency(stats.services.totalCosts)}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Schnellaktionen</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button className="btn-secondary justify-start">
-              <ClipboardDocumentCheckIcon className="w-5 h-5" />
-              Neuen Fall erstellen
-            </button>
-            <button className="btn-secondary justify-start">
-              <UsersIcon className="w-5 h-5" />
-              Helfer hinzufügen
-            </button>
-            <button className="btn-secondary justify-start">
-              <ClockIcon className="w-5 h-5" />
-              Stunden freigeben
-            </button>
-            <button className="btn-secondary justify-start">
-              <CurrencyEuroIcon className="w-5 h-5" />
-              Rechnung erstellen
-            </button>
+              </div>
+            )}
           </div>
         </div>
 

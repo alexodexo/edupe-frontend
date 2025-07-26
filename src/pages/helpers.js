@@ -2,6 +2,10 @@
 import { useState, useMemo } from 'react'
 import Head from 'next/head'
 import Layout from '@/components/Layout'
+import { LoadingPage, LoadingTable } from '@/components/Loading'
+import { useAuth } from '@/lib/auth'
+import { useHelpers, useCreateHelper } from '@/hooks/useData'
+import { useNotifications } from '@/lib/notifications'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -23,9 +27,6 @@ import {
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import { 
-  DUMMY_HELPERS,
-  DUMMY_CASES,
-  DUMMY_SERVICES,
   HELPER_AVAILABILITY,
   QUALIFICATION_TYPES,
   formatCurrency,
@@ -33,6 +34,11 @@ import {
 } from '@/lib/types'
 
 export default function Helpers() {
+  const { userRole, hasPermission } = useAuth()
+  const { helpers, isLoading, error, refresh } = useHelpers()
+  const createHelper = useCreateHelper()
+  const { success, error: showError } = useNotifications()
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedHelper, setSelectedHelper] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -42,57 +48,11 @@ export default function Helpers() {
     location: 'all'
   })
 
-  // Enhanced helpers data with calculated stats
-  const enhancedHelpers = useMemo(() => {
-    return DUMMY_HELPERS.map(helper => {
-      const helperCases = DUMMY_CASES.filter(case_ => 
-        case_.assignedHelpers.includes(helper.id)
-      )
-      const helperServices = DUMMY_SERVICES.filter(service => 
-        service.helperId === helper.id
-      )
-      
-      // Calculate this month's stats
-      const thisMonth = new Date()
-      const thisMonthServices = helperServices.filter(service => {
-        const serviceDate = new Date(service.date)
-        return serviceDate.getMonth() === thisMonth.getMonth() &&
-               serviceDate.getFullYear() === thisMonth.getFullYear()
-      })
-      
-      const thisMonthHours = thisMonthServices.reduce((sum, service) => sum + service.duration, 0)
-      const thisMonthRevenue = thisMonthHours * helper.hourlyRate
-      
-      // Last activity
-      const lastActivity = helperServices.length > 0 
-        ? Math.max(...helperServices.map(s => new Date(s.createdAt).getTime()))
-        : new Date(helper.updatedAt).getTime()
-      
-      // Document compliance
-      const expiredDocs = helper.documents.filter(doc => 
-        new Date(doc.validUntil) < new Date()
-      ).length
-      
-      const expiringSoonDocs = helper.documents.filter(doc => {
-        const validUntil = new Date(doc.validUntil)
-        const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        return validUntil > new Date() && validUntil <= in30Days
-      }).length
-
-      return {
-        ...helper,
-        activeCases: helperCases.filter(c => c.status === 'active').length,
-        thisMonthHours: Math.round(thisMonthHours * 10) / 10,
-        thisMonthRevenue,
-        lastActivity: new Date(lastActivity),
-        complianceStatus: expiredDocs > 0 ? 'expired' : expiringSoonDocs > 0 ? 'expiring' : 'valid'
-      }
-    })
-  }, [])
-
   // Filter helpers
   const filteredHelpers = useMemo(() => {
-    return enhancedHelpers.filter(helper => {
+    if (!helpers) return []
+    
+    return helpers.filter(helper => {
       const matchesSearch = 
         helper.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         helper.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +67,7 @@ export default function Helpers() {
 
       return matchesSearch && matchesAvailability && matchesQualification
     })
-  }, [enhancedHelpers, searchTerm, selectedFilters])
+  }, [helpers, searchTerm, selectedFilters])
 
   const getAvailabilityColor = (availability) => {
     switch (availability) {
@@ -135,6 +95,51 @@ export default function Helpers() {
     }
   }
 
+  const handleCreateHelper = async (helperData) => {
+    try {
+      await createHelper(helperData)
+      success('Helfer wurde erfolgreich hinzugefügt')
+      setShowAddModal(false)
+      refresh()
+    } catch (error) {
+      showError('Fehler beim Erstellen des Helfers')
+    }
+  }
+
+  // Check permissions
+  if (!hasPermission('view_helpers')) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Berechtigung</h3>
+          <p className="text-gray-600">Sie haben keine Berechtigung, Helfer zu verwalten.</p>
+        </div>
+      </Layout>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <LoadingPage message="Lade Helfer..." />
+      </Layout>
+    )
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-red-900 mb-2">Fehler beim Laden</h3>
+          <p className="text-red-600 mb-4">{error.message}</p>
+          <button onClick={refresh} className="btn-primary">
+            Erneut versuchen
+          </button>
+        </div>
+      </Layout>
+    )
+  }
+
   return (
     <Layout>
       <Head>
@@ -148,13 +153,15 @@ export default function Helpers() {
             <h1 className="text-2xl font-semibold text-gray-900">Helfer</h1>
             <p className="text-gray-600 mt-1">Verwalten Sie Ihre Helfer und deren Verfügbarkeit</p>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Neuer Helfer
-          </button>
+          {hasPermission('create_helpers') && (
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Neuer Helfer
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -309,231 +316,433 @@ export default function Helpers() {
 
       {/* Helper Detail Modal */}
       {selectedHelper && (
-        <>
-          <div className="modal-backdrop" onClick={() => setSelectedHelper(null)} />
-          <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
+        <HelperDetailModal 
+          helper={selectedHelper} 
+          onClose={() => setSelectedHelper(null)}
+        />
+      )}
+
+      {/* Add Helper Modal */}
+      {showAddModal && (
+        <AddHelperModal 
+          onClose={() => setShowAddModal(false)}
+          onSave={handleCreateHelper}
+        />
+      )}
+    </Layout>
+  )
+}
+
+// Helper Detail Modal Component
+function HelperDetailModal({ helper, onClose }) {
+  return (
+    <>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
+        
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <span className="text-lg font-semibold text-white">
+                  {helper.firstName[0]}{helper.lastName[0]}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  {helper.firstName} {helper.lastName}
+                </h2>
+                <p className="text-blue-100">{helper.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <span className="text-lg font-semibold text-white">
-                      {selectedHelper.firstName[0]}{selectedHelper.lastName[0]}
+            {/* Personal Info */}
+            <div className="space-y-6">
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Persönliche Informationen</h3>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Bewertung:</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <StarIcon className="w-5 h-5 text-yellow-500 fill-current" />
+                      <span className="font-medium">{helper.rating}</span>
+                      <span className="text-gray-500">({helper.totalCases} Fälle)</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Verfügbarkeit:</span>
+                    <span className={`badge ml-2`}>
+                      {helper.availability}
                     </span>
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-white">
-                      {selectedHelper.firstName} {selectedHelper.lastName}
-                    </h2>
-                    <p className="text-blue-100">{selectedHelper.email}</p>
+                    <span className="text-gray-600">Stundensatz:</span>
+                    <p className="font-medium mt-1">{formatCurrency(helper.hourlyRate)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Mitglied seit:</span>
+                    <p className="font-medium mt-1">
+                      {new Date(helper.createdAt).toLocaleDateString('de-DE')}
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelectedHelper(null)}
-                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
               </div>
+
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Kontaktdaten</h3>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">E-Mail:</span>
+                    <p className="font-medium mt-1">{helper.email}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Telefon:</span>
+                    <p className="font-medium mt-1">{helper.phone}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Adresse:</span>
+                    <p className="font-medium mt-1">
+                      {helper.address.street}<br />
+                      {helper.address.zipCode} {helper.address.city}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {helper.bankDetails && (
+                <div className="card p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Bankdaten</h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-gray-600">IBAN:</span>
+                      <p className="font-mono text-xs mt-1">{helper.bankDetails.iban}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">BIC:</span>
+                      <p className="font-mono text-xs mt-1">{helper.bankDetails.bic}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Modal Content */}
-            <div className="flex-1 overflow-auto p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Personal Info */}
-                <div className="space-y-6">
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Persönliche Informationen</h3>
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <span className="text-gray-600">Bewertung:</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <StarIcon className="w-5 h-5 text-yellow-500 fill-current" />
-                          <span className="font-medium">{selectedHelper.rating}</span>
-                          <span className="text-gray-500">({selectedHelper.totalCases} Fälle)</span>
+            {/* Qualifications & Documents */}
+            <div className="space-y-6">
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Qualifikationen</h3>
+                <div className="flex flex-wrap gap-2">
+                  {helper.qualifications.map((qualification, index) => (
+                    <span key={index} className="badge badge-blue">
+                      {qualification}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">Dokumente</h3>
+                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="space-y-3">
+                  {helper.documents?.map((doc, index) => {
+                    const isExpired = new Date(doc.validUntil) < new Date()
+                    const isExpiringSoon = new Date(doc.validUntil) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                    
+                    return (
+                      <div key={index} className={`p-3 rounded-lg border ${
+                        isExpired ? 'border-red-200 bg-red-50' :
+                        isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
+                        'border-green-200 bg-green-50'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{doc.type}</p>
+                            <p className="text-xs text-gray-600">
+                              Gültig bis: {new Date(doc.validUntil).toLocaleDateString('de-DE')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {doc.verified && <ShieldCheckIcon className="w-4 h-4 text-green-600" />}
+                            <DocumentCheckIcon className={`w-4 h-4 ${
+                              isExpired ? 'text-red-600' :
+                              isExpiringSoon ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`} />
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <span className="text-gray-600">Verfügbarkeit:</span>
-                        <span className={`badge ${getAvailabilityColor(selectedHelper.availability)} ml-2`}>
-                          {selectedHelper.availability}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Stundensatz:</span>
-                        <p className="font-medium mt-1">{formatCurrency(selectedHelper.hourlyRate)}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Mitglied seit:</span>
-                        <p className="font-medium mt-1">
-                          {new Date(selectedHelper.createdAt).toLocaleDateString('de-DE')}
-                        </p>
-                      </div>
+                    )
+                  }) || [
+                    <div key="no-docs" className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                      <p className="text-sm text-gray-600">Keine Dokumente hinterlegt</p>
                     </div>
-                  </div>
+                  ]}
+                </div>
+              </div>
+            </div>
 
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Kontaktdaten</h3>
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <span className="text-gray-600">E-Mail:</span>
-                        <p className="font-medium mt-1">{selectedHelper.email}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Telefon:</span>
-                        <p className="font-medium mt-1">{selectedHelper.phone}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Adresse:</span>
-                        <p className="font-medium mt-1">
-                          {selectedHelper.address.street}<br />
-                          {selectedHelper.address.zipCode} {selectedHelper.address.city}
-                        </p>
-                      </div>
-                    </div>
+            {/* Statistics */}
+            <div className="space-y-6">
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Statistiken</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <p className="text-2xl font-semibold text-blue-600">{helper.activeCases}</p>
+                    <p className="text-xs text-blue-600">Aktive Fälle</p>
                   </div>
-
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Bankdaten</h3>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">IBAN:</span>
-                        <p className="font-mono text-xs mt-1">{selectedHelper.bankDetails.iban}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">BIC:</span>
-                        <p className="font-mono text-xs mt-1">{selectedHelper.bankDetails.bic}</p>
-                      </div>
-                    </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <p className="text-2xl font-semibold text-green-600">{helper.totalHours}</p>
+                    <p className="text-xs text-green-600">Stunden gesamt</p>
+                  </div>
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                    <p className="text-2xl font-semibold text-yellow-600">{helper.thisMonthHours}</p>
+                    <p className="text-xs text-yellow-600">Stunden/Monat</p>
+                  </div>
+                  <div className="text-center p-3 bg-purple-50 rounded-lg">
+                    <p className="text-lg font-semibold text-purple-600">
+                      {formatCurrency(helper.thisMonthRevenue)}
+                    </p>
+                    <p className="text-xs text-purple-600">Umsatz/Monat</p>
                   </div>
                 </div>
+              </div>
 
-                {/* Qualifications & Documents */}
-                <div className="space-y-6">
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Qualifikationen</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedHelper.qualifications.map((qualification, index) => (
-                        <span key={index} className="badge badge-blue">
-                          {qualification}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="card p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900">Dokumente</h3>
-                      {getComplianceIcon(selectedHelper.complianceStatus)}
-                    </div>
-                    <div className="space-y-3">
-                      {selectedHelper.documents.map((doc, index) => {
-                        const isExpired = new Date(doc.validUntil) < new Date()
-                        const isExpiringSoon = new Date(doc.validUntil) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                        
-                        return (
-                          <div key={index} className={`p-3 rounded-lg border ${
-                            isExpired ? 'border-red-200 bg-red-50' :
-                            isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
-                            'border-green-200 bg-green-50'
-                          }`}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-sm">{doc.type}</p>
-                                <p className="text-xs text-gray-600">
-                                  Gültig bis: {new Date(doc.validUntil).toLocaleDateString('de-DE')}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {doc.verified && <ShieldCheckIcon className="w-4 h-4 text-green-600" />}
-                                <DocumentCheckIcon className={`w-4 h-4 ${
-                                  isExpired ? 'text-red-600' :
-                                  isExpiringSoon ? 'text-yellow-600' :
-                                  'text-green-600'
-                                }`} />
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Statistics */}
-                <div className="space-y-6">
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Statistiken</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <p className="text-2xl font-semibold text-blue-600">{selectedHelper.activeCases}</p>
-                        <p className="text-xs text-blue-600">Aktive Fälle</p>
-                      </div>
-                      <div className="text-center p-3 bg-green-50 rounded-lg">
-                        <p className="text-2xl font-semibold text-green-600">{selectedHelper.totalHours}</p>
-                        <p className="text-xs text-green-600">Stunden gesamt</p>
-                      </div>
-                      <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                        <p className="text-2xl font-semibold text-yellow-600">{selectedHelper.thisMonthHours}</p>
-                        <p className="text-xs text-yellow-600">Stunden/Monat</p>
-                      </div>
-                      <div className="text-center p-3 bg-purple-50 rounded-lg">
-                        <p className="text-lg font-semibold text-purple-600">
-                          {formatCurrency(selectedHelper.thisMonthRevenue)}
-                        </p>
-                        <p className="text-xs text-purple-600">Umsatz/Monat</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="card p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Aktionen</h3>
-                    <div className="space-y-3">
-                      <button className="btn-primary w-full">
-                        <ClockIcon className="w-5 h-5" />
-                        Fall zuweisen
-                      </button>
-                      <button className="btn-secondary w-full">
-                        <CalendarIcon className="w-5 h-5" />
-                        Verfügbarkeit ändern
-                      </button>
-                      <button className="btn-secondary w-full">
-                        <CurrencyEuroIcon className="w-5 h-5" />
-                        Stundensatz anpassen
-                      </button>
-                      <button className="btn-secondary w-full">
-                        <IdentificationIcon className="w-5 h-5" />
-                        Profil bearbeiten
-                      </button>
-                    </div>
-                  </div>
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Aktionen</h3>
+                <div className="space-y-3">
+                  <button className="btn-primary w-full">
+                    <ClockIcon className="w-5 h-5" />
+                    Fall zuweisen
+                  </button>
+                  <button className="btn-secondary w-full">
+                    <CalendarIcon className="w-5 h-5" />
+                    Verfügbarkeit ändern
+                  </button>
+                  <button className="btn-secondary w-full">
+                    <CurrencyEuroIcon className="w-5 h-5" />
+                    Stundensatz anpassen
+                  </button>
+                  <button className="btn-secondary w-full">
+                    <IdentificationIcon className="w-5 h-5" />
+                    Profil bearbeiten
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </div>
+    </>
+  )
+}
 
-      {/* Add Helper Modal Placeholder */}
-      {showAddModal && (
-        <>
-          <div className="modal-backdrop" onClick={() => setShowAddModal(false)} />
-          <div className="modal-content max-w-2xl animate-slide-up">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Neuen Helfer hinzufügen</h2>
-              <p className="text-gray-600">Diese Funktionalität wird in der finalen Version implementiert.</p>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="btn-primary mt-4"
+// Add Helper Modal Component
+function AddHelperModal({ onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    street: '',
+    zipCode: '',
+    city: '',
+    birthDate: '',
+    gender: '',
+    qualifications: [],
+    languages: '',
+    iban: '',
+    taxNumber: ''
+  })
+  
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    try {
+      await onSave(formData)
+    } catch (error) {
+      console.error('Error creating helper:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col max-w-2xl mx-auto">
+        
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">Neuen Helfer hinzufügen</h2>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Personal Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vorname *
+                </label>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nachname *
+                </label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  E-Mail *
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefon
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Straße
+              </label>
+              <input
+                type="text"
+                value={formData.street}
+                onChange={(e) => setFormData({...formData, street: e.target.value})}
+                className="input"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  PLZ
+                </label>
+                <input
+                  type="text"
+                  value={formData.zipCode}
+                  onChange={(e) => setFormData({...formData, zipCode: e.target.value})}
+                  className="input"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stadt
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Geburtsdatum
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Geschlecht
+                </label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                  className="input"
+                >
+                  <option value="">Bitte wählen</option>
+                  <option value="maennlich">Männlich</option>
+                  <option value="weiblich">Weiblich</option>
+                  <option value="divers">Divers</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                Abbrechen
+              </button>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="btn-primary flex-1"
               >
-                Schließen
+                {loading ? 'Speichern...' : 'Helfer hinzufügen'}
               </button>
             </div>
-          </div>
-        </>
-      )}
-    </Layout>
+          </form>
+        </div>
+      </div>
+    </>
   )
 }
