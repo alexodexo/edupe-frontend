@@ -2,6 +2,10 @@
 import { useState, useMemo } from 'react'
 import Head from 'next/head'
 import Layout from '@/components/Layout'
+import { LoadingPage } from '@/components/Loading'
+import { useAuth } from '@/lib/auth'
+import { useServices } from '@/hooks/useData'
+import { useNotifications } from '@/lib/notifications'
 import { 
   CurrencyEuroIcon,
   DocumentTextIcon,
@@ -17,87 +21,27 @@ import {
   CalculatorIcon,
   PlusIcon,
   EyeIcon,
+  PencilIcon,
   UserIcon,
   BuildingOfficeIcon,
   MapPinIcon,
   FunnelIcon
 } from '@heroicons/react/24/outline'
 import {
-  DUMMY_SERVICES,
-  DUMMY_CASES,
-  DUMMY_HELPERS,
   SERVICE_STATUS,
   SERVICE_TYPES,
   formatCurrency,
   formatDateTime,
   formatDuration
 } from '@/lib/types'
+import useSWR from 'swr'
 
-// Dummy invoices data
-const DUMMY_INVOICES = [
-  {
-    id: 'inv_001',
-    invoiceNumber: 'R-2024-0156',
-    period: '2024-03',
-    periodLabel: 'März 2024',
-    jugendamt: {
-      id: 'ja_frankfurt',
-      name: 'Jugendamt Frankfurt',
-      email: 'abrechnung@jugendamt-frankfurt.de'
-    },
-    amount: 4567.89,
-    totalHours: 156.5,
-    servicesCount: 42,
-    status: 'paid',
-    dueDate: '2024-04-15',
-    paidDate: '2024-04-10',
-    createdAt: '2024-04-01T10:00:00Z',
-    cases: ['case_001'],
-    helpers: ['helper_001']
-  },
-  {
-    id: 'inv_002',
-    invoiceNumber: 'R-2024-0155',
-    period: '2024-03',
-    periodLabel: 'März 2024',
-    jugendamt: {
-      id: 'ja_offenbach',
-      name: 'Jugendamt Offenbach',
-      email: 'abrechnung@jugendamt-offenbach.de'
-    },
-    amount: 3234.50,
-    totalHours: 112.0,
-    servicesCount: 28,
-    status: 'pending',
-    dueDate: '2024-04-20',
-    paidDate: null,
-    createdAt: '2024-03-31T15:30:00Z',
-    cases: ['case_002'],
-    helpers: ['helper_002']
-  },
-  {
-    id: 'inv_003',
-    invoiceNumber: 'R-2024-0154',
-    period: '2024-02',
-    periodLabel: 'Februar 2024',
-    jugendamt: {
-      id: 'ja_hanau',
-      name: 'Jugendamt Hanau',
-      email: 'abrechnung@jugendamt-hanau.de'
-    },
-    amount: 5678.90,
-    totalHours: 189.5,
-    servicesCount: 56,
-    status: 'overdue',
-    dueDate: '2024-03-15',
-    paidDate: null,
-    createdAt: '2024-02-29T12:00:00Z',
-    cases: ['case_003'],
-    helpers: ['helper_003']
-  }
-]
+const fetcher = (url) => fetch(url).then((res) => res.json())
 
 export default function Billing() {
+  const { userRole, userProfile, hasPermission } = useAuth()
+  const { success, error: showError } = useNotifications()
+  
   const [activeTab, setActiveTab] = useState('services') // services, invoices
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedServices, setSelectedServices] = useState(new Set())
@@ -109,31 +53,28 @@ export default function Billing() {
     case: 'all'
   })
 
-  // Enhanced services with additional data
-  const enhancedServices = useMemo(() => {
-    return DUMMY_SERVICES.map(service => {
-      const case_ = DUMMY_CASES.find(c => c.id === service.caseId)
-      const helper = DUMMY_HELPERS.find(h => h.id === service.helperId)
-      
-      return {
-        ...service,
-        case: case_,
-        helper: helper,
-        isPendingApproval: service.status === SERVICE_STATUS.SUBMITTED,
-        isApproved: service.status === SERVICE_STATUS.APPROVED,
-        isRejected: service.status === SERVICE_STATUS.REJECTED
-      }
-    })
-  }, [])
+  // Fetch services with real API
+  const { data: services, error: servicesError, mutate: refreshServices } = useSWR(
+    userProfile ? `/api/services?userId=${userProfile.helfer_id || userProfile.ansprechpartner_id}&userRole=${userRole}` : null,
+    fetcher
+  )
+
+  // Fetch invoices with real API
+  const { data: invoices, error: invoicesError, mutate: refreshInvoices } = useSWR(
+    userProfile ? `/api/billing?userId=${userProfile.helfer_id || userProfile.ansprechpartner_id}&userRole=${userRole}` : null,
+    fetcher
+  )
 
   // Filter services for approval
   const pendingServices = useMemo(() => {
-    return enhancedServices.filter(service => {
+    if (!services) return []
+    
+    return services.filter(service => {
       const matchesSearch = 
-        service.case?.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.helper?.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.helper?.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase())
+        service.case?.caseNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.helper?.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.helper?.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.description?.toLowerCase().includes(searchTerm.toLowerCase())
 
       const matchesStatus = selectedFilters.status === 'all' || service.status === selectedFilters.status
       const matchesHelper = selectedFilters.helper === 'all' || service.helperId === selectedFilters.helper
@@ -141,14 +82,21 @@ export default function Billing() {
 
       return matchesSearch && matchesStatus && matchesHelper && matchesCase
     })
-  }, [enhancedServices, searchTerm, selectedFilters])
+  }, [services, searchTerm, selectedFilters])
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalRevenue = DUMMY_INVOICES.reduce((sum, inv) => sum + inv.amount, 0)
-    const paidInvoices = DUMMY_INVOICES.filter(inv => inv.status === 'paid')
-    const pendingAmount = DUMMY_INVOICES.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + inv.amount, 0)
-    const pendingApprovals = pendingServices.filter(s => s.status === SERVICE_STATUS.SUBMITTED).length
+    if (!invoices) return {
+      totalRevenue: 0,
+      paidInvoices: 0,
+      pendingAmount: 0,
+      pendingApprovals: 0
+    }
+
+    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0)
+    const paidInvoices = invoices.filter(inv => inv.status === 'paid')
+    const pendingAmount = invoices.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0)
+    const pendingApprovals = pendingServices?.filter(s => s.status === 'submitted').length || 0
 
     return {
       totalRevenue,
@@ -156,7 +104,7 @@ export default function Billing() {
       pendingAmount,
       pendingApprovals
     }
-  }, [pendingServices])
+  }, [invoices, pendingServices])
 
   const handleServiceToggle = (serviceId) => {
     const newSelected = new Set(selectedServices)
@@ -168,28 +116,129 @@ export default function Billing() {
     setSelectedServices(newSelected)
   }
 
-  const handleApproveService = (serviceId) => {
-    // In real app: API call to approve service
-    console.log('Approving service:', serviceId)
+  const handleApproveService = async (serviceId) => {
+    try {
+      const response = await fetch(`/api/services/${serviceId}/approve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          approved: true,
+          freigegeben_von: userProfile.helfer_id || userProfile.ansprechpartner_id
+        })
+      })
+
+      if (!response.ok) throw new Error('Fehler beim Freigeben')
+
+      success('Service wurde freigegeben')
+      refreshServices()
+    } catch (error) {
+      showError('Fehler beim Freigeben des Services')
+    }
   }
 
-  const handleRejectService = (serviceId) => {
-    // In real app: API call to reject service
-    console.log('Rejecting service:', serviceId)
+  const handleRejectService = async (serviceId) => {
+    const reason = prompt('Grund für Ablehnung (optional):')
+    
+    try {
+      const response = await fetch(`/api/services/${serviceId}/approve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          approved: false,
+          freigegeben_von: userProfile.helfer_id || userProfile.ansprechpartner_id,
+          reason
+        })
+      })
+
+      if (!response.ok) throw new Error('Fehler beim Ablehnen')
+
+      success('Service wurde abgelehnt')
+      refreshServices()
+    } catch (error) {
+      showError('Fehler beim Ablehnen des Services')
+    }
   }
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     if (selectedServices.size === 0) return
-    // In real app: API call to bulk approve services
-    console.log('Bulk approving services:', Array.from(selectedServices))
-    setSelectedServices(new Set())
+    
+    try {
+      const response = await fetch('/api/services/bulk-approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          serviceIds: Array.from(selectedServices),
+          freigegeben_von: userProfile.helfer_id || userProfile.ansprechpartner_id,
+          approved: true
+        })
+      })
+
+      if (!response.ok) throw new Error('Fehler bei Bulk-Freigabe')
+
+      success(`${selectedServices.size} Services wurden freigegeben`)
+      setSelectedServices(new Set())
+      refreshServices()
+    } catch (error) {
+      showError('Fehler bei der Bulk-Freigabe')
+    }
   }
 
-  const handleBulkReject = () => {
+  const handleBulkReject = async () => {
     if (selectedServices.size === 0) return
-    // In real app: API call to bulk reject services
-    console.log('Bulk rejecting services:', Array.from(selectedServices))
-    setSelectedServices(new Set())
+    
+    const reason = prompt('Grund für Ablehnung (optional):')
+    
+    try {
+      const response = await fetch('/api/services/bulk-approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          serviceIds: Array.from(selectedServices),
+          freigegeben_von: userProfile.helfer_id || userProfile.ansprechpartner_id,
+          approved: false,
+          reason
+        })
+      })
+
+      if (!response.ok) throw new Error('Fehler bei Bulk-Ablehnung')
+
+      success(`${selectedServices.size} Services wurden abgelehnt`)
+      setSelectedServices(new Set())
+      refreshServices()
+    } catch (error) {
+      showError('Fehler bei der Bulk-Ablehnung')
+    }
+  }
+
+  const handleCreateInvoice = async (invoiceData) => {
+    try {
+      const response = await fetch('/api/billing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...invoiceData,
+          erstellt_von: userProfile.helfer_id || userProfile.ansprechpartner_id
+        })
+      })
+
+      if (!response.ok) throw new Error('Fehler beim Erstellen der Rechnung')
+
+      success('Rechnung wurde erfolgreich erstellt')
+      setShowInvoiceModal(false)
+      refreshInvoices()
+    } catch (error) {
+      showError('Fehler beim Erstellen der Rechnung')
+    }
   }
 
   const getStatusColor = (status) => {
@@ -207,11 +256,11 @@ export default function Billing() {
 
   const getServiceStatusColor = (status) => {
     switch (status) {
-      case SERVICE_STATUS.APPROVED:
+      case 'approved':
         return 'bg-green-100 text-green-800'
-      case SERVICE_STATUS.SUBMITTED:
+      case 'submitted':
         return 'bg-yellow-100 text-yellow-800'
-      case SERVICE_STATUS.REJECTED:
+      case 'rejected':
         return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
@@ -229,6 +278,26 @@ export default function Billing() {
     }
   }
 
+  // Check permissions
+  if (!hasPermission('view_billing')) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Berechtigung</h3>
+          <p className="text-gray-600">Sie haben keine Berechtigung für Abrechnungen.</p>
+        </div>
+      </Layout>
+    )
+  }
+
+  if ((!services && !servicesError) || (!invoices && !invoicesError)) {
+    return (
+      <Layout>
+        <LoadingPage message="Lade Abrechnungsdaten..." />
+      </Layout>
+    )
+  }
+
   return (
     <Layout>
       <Head>
@@ -242,13 +311,15 @@ export default function Billing() {
             <h1 className="text-2xl font-semibold text-gray-900">Abrechnungen</h1>
             <p className="text-gray-600 mt-1">Stundenfreigabe und Rechnungsverwaltung</p>
           </div>
-          <button 
-            onClick={() => setShowInvoiceModal(true)}
-            className="btn-primary"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Rechnung erstellen
-          </button>
+          {hasPermission('create_invoices') && (
+            <button 
+              onClick={() => setShowInvoiceModal(true)}
+              className="btn-primary"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Rechnung erstellen
+            </button>
+          )}
         </div>
 
         {/* Stats */}
@@ -297,21 +368,23 @@ export default function Billing() {
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('services')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'services'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Stundenfreigabe
-              {stats.pendingApprovals > 0 && (
-                <span className="ml-2 bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs">
-                  {stats.pendingApprovals}
-                </span>
-              )}
-            </button>
+            {hasPermission('approve_services') && (
+              <button
+                onClick={() => setActiveTab('services')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'services'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Stundenfreigabe
+                {stats.pendingApprovals > 0 && (
+                  <span className="ml-2 bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs">
+                    {stats.pendingApprovals}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('invoices')}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -326,7 +399,7 @@ export default function Billing() {
         </div>
 
         {/* Services Tab */}
-        {activeTab === 'services' && (
+        {activeTab === 'services' && hasPermission('approve_services') && (
           <div className="space-y-6">
             {/* Filters */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
@@ -349,22 +422,9 @@ export default function Billing() {
                     className="input w-auto min-w-[120px]"
                   >
                     <option value="all">Alle Status</option>
-                    <option value={SERVICE_STATUS.SUBMITTED}>Zur Freigabe</option>
-                    <option value={SERVICE_STATUS.APPROVED}>Freigegeben</option>
-                    <option value={SERVICE_STATUS.REJECTED}>Abgelehnt</option>
-                  </select>
-                  
-                  <select 
-                    value={selectedFilters.helper}
-                    onChange={(e) => setSelectedFilters({...selectedFilters, helper: e.target.value})}
-                    className="input w-auto min-w-[150px]"
-                  >
-                    <option value="all">Alle Helfer</option>
-                    {DUMMY_HELPERS.map(helper => (
-                      <option key={helper.id} value={helper.id}>
-                        {helper.firstName} {helper.lastName}
-                      </option>
-                    ))}
+                    <option value="submitted">Zur Freigabe</option>
+                    <option value="approved">Freigegeben</option>
+                    <option value="rejected">Abgelehnt</option>
                   </select>
 
                   <button className="btn-secondary">
@@ -404,7 +464,7 @@ export default function Billing() {
 
             {/* Services List */}
             <div className="space-y-4">
-              {pendingServices.map((service) => (
+              {pendingServices && pendingServices.map((service) => (
                 <div key={service.id} className="card">
                   <div className="p-6">
                     <div className="flex items-start gap-4">
@@ -426,16 +486,13 @@ export default function Billing() {
                                 {service.helper?.firstName} {service.helper?.lastName}
                               </h3>
                               <span className={`badge ${getServiceStatusColor(service.status)}`}>
-                                {service.status === SERVICE_STATUS.SUBMITTED ? 'Zur Freigabe' :
-                                 service.status === SERVICE_STATUS.APPROVED ? 'Freigegeben' :
-                                 service.status === SERVICE_STATUS.REJECTED ? 'Abgelehnt' : service.status}
+                                {service.status === 'submitted' ? 'Zur Freigabe' :
+                                 service.status === 'approved' ? 'Freigegeben' :
+                                 service.status === 'rejected' ? 'Abgelehnt' : service.status}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mb-1">
                               Fall {service.case?.caseNumber} • {service.case?.title}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {service.case?.jugendamt.name}
                             </p>
                           </div>
                           
@@ -478,28 +535,8 @@ export default function Billing() {
                           <p className="text-sm text-gray-700">{service.description}</p>
                         </div>
 
-                        {/* Activities */}
-                        {service.activities && service.activities.length > 0 && (
-                          <div className="mb-4">
-                            <h4 className="font-medium text-gray-900 text-sm mb-2">Durchgeführte Aktivitäten:</h4>
-                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                              {service.activities.map((activity, index) => (
-                                <li key={index}>{activity}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Travel Time Warning */}
-                        {service.travelTime && (
-                          <div className="flex items-center gap-2 text-sm text-orange-600 mb-4">
-                            <ExclamationTriangleIcon className="w-4 h-4" />
-                            <span>Fahrtzeit: {service.travelTime} Minuten berücksichtigt</span>
-                          </div>
-                        )}
-
                         {/* Actions */}
-                        {service.status === SERVICE_STATUS.SUBMITTED && (
+                        {service.status === 'submitted' && (
                           <div className="flex gap-3">
                             <button 
                               onClick={() => handleRejectService(service.id)}
@@ -525,7 +562,7 @@ export default function Billing() {
             </div>
 
             {/* Empty State */}
-            {pendingServices.length === 0 && (
+            {(!pendingServices || pendingServices.length === 0) && (
               <div className="text-center py-12">
                 <ClockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Services gefunden</h3>
@@ -565,17 +602,17 @@ export default function Billing() {
                   </tr>
                 </thead>
                 <tbody>
-                  {DUMMY_INVOICES.map((invoice) => (
+                  {invoices && invoices.map((invoice) => (
                     <tr key={invoice.id}>
                       <td className="font-medium">{invoice.invoiceNumber}</td>
-                      <td>{invoice.periodLabel}</td>
+                      <td>{invoice.periodLabel || 'N/A'}</td>
                       <td>
                         <div>
-                          <p className="font-medium">{invoice.jugendamt.name}</p>
-                          <p className="text-sm text-gray-500">{invoice.servicesCount} Services • {invoice.totalHours}h</p>
+                          <p className="font-medium">{invoice.case?.jugendamt || 'N/A'}</p>
+                          <p className="text-sm text-gray-500">{invoice.serviceCount} Services • {invoice.workHours}h</p>
                         </div>
                       </td>
-                      <td className="font-medium">{formatCurrency(invoice.amount)}</td>
+                      <td className="font-medium">{formatCurrency(invoice.totalAmount)}</td>
                       <td>
                         <span className={`badge ${getStatusColor(invoice.status)}`}>
                           {invoice.status === 'paid' ? 'Bezahlt' :
@@ -583,7 +620,7 @@ export default function Billing() {
                            invoice.status === 'overdue' ? 'Überfällig' : invoice.status}
                         </span>
                       </td>
-                      <td>{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</td>
+                      <td>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('de-DE') : 'N/A'}</td>
                       <td>
                         <div className="flex gap-2">
                           <button 
@@ -603,61 +640,73 @@ export default function Billing() {
                 </tbody>
               </table>
             </div>
+
+            {/* Empty State für Invoices */}
+            {(!invoices || invoices.length === 0) && (
+              <div className="text-center py-12">
+                <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Rechnungen gefunden</h3>
+                <p className="text-gray-600">Erstellen Sie Ihre erste Rechnung</p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Invoice Detail Modal */}
-      {selectedInvoice && (
-        <>
-          <div className="modal-backdrop" onClick={() => setSelectedInvoice(null)} />
-          <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
-            <InvoiceDetail 
-              invoice={selectedInvoice} 
-              onClose={() => setSelectedInvoice(null)} 
-            />
-          </div>
-        </>
+      {/* Modals hier falls nötig */}
+      {showInvoiceModal && (
+        <CreateInvoiceModal 
+          onClose={() => setShowInvoiceModal(false)}
+          onSave={handleCreateInvoice}
+        />
       )}
 
-      {/* Create Invoice Modal Placeholder */}
-      {showInvoiceModal && (
-        <>
-          <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)} />
-          <div className="modal-content max-w-2xl animate-slide-up">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Rechnung erstellen</h2>
-              <p className="text-gray-600">Diese Funktionalität wird in der finalen Version implementiert.</p>
-              <button
-                onClick={() => setShowInvoiceModal(false)}
-                className="btn-primary mt-4"
-              >
-                Schließen
-              </button>
-            </div>
-          </div>
-        </>
+      {selectedInvoice && (
+        <InvoiceDetailModal 
+          invoice={selectedInvoice} 
+          onClose={() => setSelectedInvoice(null)} 
+        />
       )}
     </Layout>
   )
 }
 
-// Invoice Detail Component
-function InvoiceDetail({ invoice, onClose }) {
+// Create Invoice Modal Component
+function CreateInvoiceModal({ onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    fall_id: '',
+    arbeitsstunden: 0,
+    leistungsanzahl: 0,
+    stundensatz: 25.50,
+    rechnungsdatum: new Date().toISOString().split('T')[0],
+    notiz: ''
+  })
+  
+  const [loading, setLoading] = useState(false)
+  const { data: cases } = useSWR('/api/cases', fetcher)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    try {
+      await onSave(formData)
+    } catch (error) {
+      console.error('Error creating invoice:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">Rechnung {invoice.invoiceNumber}</h2>
-            <p className="text-blue-100">{invoice.periodLabel} • {invoice.jugendamt.name}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="btn bg-white/10 hover:bg-white/20 text-white border-white/20">
-              <ArrowDownTrayIcon className="w-5 h-5" />
-              PDF Download
-            </button>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col max-w-2xl mx-auto">
+        
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">Rechnung erstellen</h2>
             <button
               onClick={onClose}
               className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
@@ -666,92 +715,211 @@ function InvoiceDetail({ invoice, onClose }) {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Invoice Header */}
-          <div className="text-center pb-6 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Rechnung</h1>
-            <p className="text-gray-600">
-              Rechnungsnummer: {invoice.invoiceNumber} • Periode: {invoice.periodLabel}
-            </p>
-          </div>
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fall auswählen *
+              </label>
+              <select
+                value={formData.fall_id}
+                onChange={(e) => setFormData({...formData, fall_id: e.target.value})}
+                className="input"
+                required
+              >
+                <option value="">Bitte wählen...</option>
+                {cases && cases.map(case_ => (
+                  <option key={case_.id} value={case_.id}>
+                    {case_.caseNumber} - {case_.title}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Invoice Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="card p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Rechnungsempfänger</h3>
-              <div className="space-y-2">
-                <p className="font-medium">{invoice.jugendamt.name}</p>
-                <p className="text-sm text-gray-600">{invoice.jugendamt.email}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Arbeitsstunden *
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={formData.arbeitsstunden}
+                  onChange={(e) => setFormData({...formData, arbeitsstunden: parseFloat(e.target.value)})}
+                  className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Anzahl Leistungen *
+                </label>
+                <input
+                  type="number"
+                  value={formData.leistungsanzahl}
+                  onChange={(e) => setFormData({...formData, leistungsanzahl: parseInt(e.target.value)})}
+                  className="input"
+                  required
+                />
               </div>
             </div>
 
-            <div className="card p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Rechnungsdetails</h3>
-              <dl className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stundensatz (€) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.stundensatz}
+                  onChange={(e) => setFormData({...formData, stundensatz: parseFloat(e.target.value)})}
+                  className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rechnungsdatum *
+                </label>
+                <input
+                  type="date"
+                  value={formData.rechnungsdatum}
+                  onChange={(e) => setFormData({...formData, rechnungsdatum: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notiz
+              </label>
+              <textarea
+                value={formData.notiz}
+                onChange={(e) => setFormData({...formData, notiz: e.target.value})}
+                className="input"
+                rows="3"
+                placeholder="Zusätzliche Anmerkungen..."
+              />
+            </div>
+
+            {/* Calculation */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">Berechnung</h4>
+              <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Betrag:</dt>
-                  <dd className="font-medium">{formatCurrency(invoice.amount)}</dd>
+                  <span>Stunden:</span>
+                  <span>{formData.arbeitsstunden || 0}h</span>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-600">Gesamtstunden:</dt>
-                  <dd className="font-medium">{invoice.totalHours}h</dd>
+                  <span>Stundensatz:</span>
+                  <span>{formatCurrency(formData.stundensatz || 0)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-600">Services:</dt>
-                  <dd className="font-medium">{invoice.servicesCount}</dd>
+                <div className="flex justify-between font-semibold">
+                  <span>Gesamtbetrag:</span>
+                  <span>{formatCurrency((formData.arbeitsstunden || 0) * (formData.stundensatz || 0))}</span>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-600">Fällig am:</dt>
-                  <dd className="font-medium">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</dd>
-                </div>
-              </dl>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                Abbrechen
+              </button>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="btn-primary flex-1"
+              >
+                {loading ? 'Erstellen...' : 'Rechnung erstellen'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Invoice Detail Modal Component
+function InvoiceDetailModal({ invoice, onClose }) {
+  return (
+    <>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
+        
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Rechnung {invoice.invoiceNumber}</h2>
+              <p className="text-blue-100">{invoice.periodLabel || ''} • {invoice.case?.jugendamt || ''}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="btn bg-white/10 hover:bg-white/20 text-white border-white/20">
+                <ArrowDownTrayIcon className="w-5 h-5" />
+                PDF Download
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+              >
+                ×
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Services Summary */}
-          <div className="card p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Leistungsübersicht</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left p-3">Datum</th>
-                    <th className="text-left p-3">Helfer</th>
-                    <th className="text-left p-3">Fall</th>
-                    <th className="text-right p-3">Stunden</th>
-                    <th className="text-right p-3">Betrag</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {/* Mock service entries */}
-                  <tr>
-                    <td className="p-3">01.03.2024</td>
-                    <td className="p-3">Anna Schmidt</td>
-                    <td className="p-3">F-2024-001</td>
-                    <td className="p-3 text-right">3.5h</td>
-                    <td className="p-3 text-right">{formatCurrency(89.25)}</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3">03.03.2024</td>
-                    <td className="p-3">Anna Schmidt</td>
-                    <td className="p-3">F-2024-001</td>
-                    <td className="p-3 text-right">2.0h</td>
-                    <td className="p-3 text-right">{formatCurrency(51.00)}</td>
-                  </tr>
-                  {/* More entries would be rendered here */}
-                </tbody>
-                <tfoot className="bg-gray-50 font-semibold">
-                  <tr>
-                    <td colSpan="3" className="p-3">Gesamt</td>
-                    <td className="p-3 text-right">{invoice.totalHours}h</td>
-                    <td className="p-3 text-right">{formatCurrency(invoice.amount)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Invoice Header */}
+            <div className="text-center pb-6 border-b border-gray-200">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Rechnung</h1>
+              <p className="text-gray-600">
+                Rechnungsnummer: {invoice.invoiceNumber} • {invoice.periodLabel || 'N/A'}
+              </p>
+            </div>
+
+            {/* Invoice Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Rechnungsempfänger</h3>
+                <div className="space-y-2">
+                  <p className="font-medium">{invoice.case?.jugendamt || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="card p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Rechnungsdetails</h3>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Betrag:</dt>
+                    <dd className="font-medium">{formatCurrency(invoice.totalAmount || 0)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Gesamtstunden:</dt>
+                    <dd className="font-medium">{invoice.workHours || 0}h</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Services:</dt>
+                    <dd className="font-medium">{invoice.serviceCount || 0}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Fällig am:</dt>
+                    <dd className="font-medium">
+                      {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('de-DE') : 'N/A'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             </div>
           </div>
         </div>

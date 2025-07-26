@@ -1,5 +1,5 @@
 // src/components/Layout.js
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useAuth } from '@/lib/auth'
@@ -46,7 +46,7 @@ const getNavigationItems = (userRole, hasPermission) => {
     { name: 'Meine Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['helper'] },
     { name: 'Meine Services', href: '/services', icon: ClockIcon, roles: ['helper'] },
     { name: 'Urlaub', href: '/vacation', icon: CalendarDaysIcon, roles: ['helper'] },
-    { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['helper'] }
+    { name: 'Profil', href: '/settings', icon: UserCircleIcon, roles: ['helper'] }
   ]
 
   const jugendamtItems = [
@@ -70,12 +70,39 @@ const getNavigationItems = (userRole, hasPermission) => {
 
 export default function Layout({ children }) {
   const router = useRouter()
-  const { user, userRole, userProfile, signOut, isAuthenticated } = useAuth()
+  const { user, userRole, userProfile, signOut, isAuthenticated, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // Redirect to login if not authenticated
+  // Ensure component is mounted on client side
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Handle authentication redirect
+  useEffect(() => {
+    if (mounted && !loading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [mounted, loading, isAuthenticated, router])
+
+  // Don't render anything until mounted and auth is resolved
+  if (!mounted || loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+            <span className="text-2xl font-bold text-white">E</span>
+          </div>
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Laden...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect to login if not authenticated (client-side only)
   if (!isAuthenticated) {
-    router.push('/login')
     return null
   }
 
@@ -91,15 +118,18 @@ export default function Layout({ children }) {
 
   const getUserDisplayName = () => {
     if (userRole === 'helper') {
-      return `${userProfile?.vorname} ${userProfile?.nachname}`
+      return `${userProfile?.vorname || ''} ${userProfile?.nachname || ''}`.trim() || 'Helfer'
     } else if (userRole === 'jugendamt') {
-      return userProfile?.name || user?.email
+      return userProfile?.name || user?.email || 'Jugendamt'
     }
     return user?.email || 'Admin'
   }
 
   const getUserInitials = () => {
     const name = getUserDisplayName()
+    if (name === 'Helfer' || name === 'Jugendamt' || name === 'Admin') {
+      return name.slice(0, 2).toUpperCase()
+    }
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
