@@ -1,6 +1,9 @@
 // src/pages/index.js
 import { useState, useMemo } from 'react'
 import Head from 'next/head'
+
+
+
 import { 
   UsersIcon, 
   ClipboardDocumentCheckIcon,
@@ -14,8 +17,8 @@ import {
   CalendarDaysIcon,
   MapPinIcon,
   BellIcon,
-  TrendingUpIcon,
-  TrendingDownIcon
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline'
 import Layout from '@/components/Layout'
 import { 
@@ -297,9 +300,9 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-1 text-sm">
                     {stat.changeType === 'increase' ? (
-                      <TrendingUpIcon className="w-4 h-4 text-green-600" />
+                      <ArrowTrendingUpIcon className="w-4 h-4 text-green-600" />
                     ) : (
-                      <TrendingDownIcon className="w-4 h-4 text-red-600" />
+                      <ArrowTrendingDownIcon className="w-4 h-4 text-red-600" />
                     )}
                     <span className={stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}>
                       {stat.change}
