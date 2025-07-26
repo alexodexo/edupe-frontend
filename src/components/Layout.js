@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useAuth } from '@/lib/auth'
 import {
   HomeIcon,
   UsersIcon,
@@ -12,6 +13,11 @@ import {
   Bars3Icon,
   BellIcon,
   MagnifyingGlassIcon,
+  UserCircleIcon,
+  ArrowRightOnRectangleIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline'
 
 // Simple XMarkIcon component as fallback
@@ -21,18 +27,90 @@ const XMarkIcon = ({ className }) => (
   </svg>
 )
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Helfer', href: '/helpers', icon: UsersIcon },
-  { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon },
-  { name: 'Berichte', href: '/reports', icon: DocumentTextIcon },
-  { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon },
-  { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon },
-]
+// Define navigation based on user role
+const getNavigationItems = (userRole, hasPermission) => {
+  const baseItems = [
+    { name: 'Dashboard', href: '/', icon: HomeIcon, roles: ['admin', 'helper', 'jugendamt'] }
+  ]
+
+  const adminItems = [
+    { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['admin', 'helper', 'jugendamt'] },
+    { name: 'Helfer', href: '/helpers', icon: UsersIcon, roles: ['admin'] },
+    { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['admin', 'jugendamt'] },
+    { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon, roles: ['admin', 'jugendamt'] },
+    { name: 'Statistiken', href: '/statistics', icon: ChartBarIcon, roles: ['admin'] },
+    { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] }
+  ]
+
+  const helperItems = [
+    { name: 'Meine Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['helper'] },
+    { name: 'Meine Services', href: '/services', icon: ClockIcon, roles: ['helper'] },
+    { name: 'Urlaub', href: '/vacation', icon: CalendarDaysIcon, roles: ['helper'] },
+    { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['helper'] }
+  ]
+
+  const jugendamtItems = [
+    { name: 'Unsere Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['jugendamt'] },
+    { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['jugendamt'] },
+    { name: 'Freigaben', href: '/billing', icon: CurrencyEuroIcon, roles: ['jugendamt'] }
+  ]
+
+  let allItems = [...baseItems]
+  
+  if (userRole === 'admin') {
+    allItems = [...allItems, ...adminItems]
+  } else if (userRole === 'helper') {
+    allItems = [...allItems, ...helperItems]
+  } else if (userRole === 'jugendamt') {
+    allItems = [...allItems, ...jugendamtItems]
+  }
+
+  return allItems.filter(item => item.roles.includes(userRole))
+}
 
 export default function Layout({ children }) {
   const router = useRouter()
+  const { user, userRole, userProfile, signOut, isAuthenticated } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    router.push('/login')
+    return null
+  }
+
+  const navigation = getNavigationItems(userRole, () => true)
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
+  const getUserDisplayName = () => {
+    if (userRole === 'helper') {
+      return `${userProfile?.vorname} ${userProfile?.nachname}`
+    } else if (userRole === 'jugendamt') {
+      return userProfile?.name || user?.email
+    }
+    return user?.email || 'Admin'
+  }
+
+  const getUserInitials = () => {
+    const name = getUserDisplayName()
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const getRoleLabel = () => {
+    switch (userRole) {
+      case 'admin': return 'Administrator'
+      case 'helper': return 'Helfer'
+      case 'jugendamt': return 'Jugendamt'
+      default: return 'Benutzer'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,6 +155,7 @@ export default function Layout({ children }) {
                   key={item.name}
                   href={item.href}
                   className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5 mr-3" />
                   {item.name}
@@ -87,15 +166,25 @@ export default function Layout({ children }) {
 
           {/* User profile */}
           <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-gray-600 font-medium">MA</span>
+                <span className="text-gray-600 font-medium text-sm">{getUserInitials()}</span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Max Admin</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {getUserDisplayName()}
+                </p>
+                <p className="text-xs text-gray-500">{getRoleLabel()}</p>
               </div>
             </div>
+            
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <ArrowRightOnRectangleIcon className="w-4 h-4" />
+              Abmelden
+            </button>
           </div>
         </div>
       </div>
@@ -128,6 +217,15 @@ export default function Layout({ children }) {
                 <BellIcon className="w-6 h-6 text-gray-600" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
+              
+              {/* User menu for mobile */}
+              <div className="lg:hidden">
+                <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span className="text-gray-600 font-medium text-xs">{getUserInitials()}</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </header>

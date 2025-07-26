@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import { useAuth } from '@/lib/auth'
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -14,6 +15,7 @@ import {
 
 export default function Login() {
   const router = useRouter()
+  const { signIn, user, loading } = useAuth()
   
   const [formData, setFormData] = useState({
     email: '',
@@ -23,15 +25,39 @@ export default function Login() {
   
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [userType, setUserType] = useState('admin') // admin, helper, jugendamt
   const [error, setError] = useState('')
 
-  // Demo users for different roles
-  const demoUsers = {
-    admin: { email: 'admin@edupe.de', password: 'admin123', name: 'Max Administrator' },
-    helper: { email: 'helper@edupe.de', password: 'helper123', name: 'Anna Helferin' },
-    jugendamt: { email: 'jugendamt@frankfurt.de', password: 'jugendamt123', name: 'Jugendamt Frankfurt' }
-  }
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !loading) {
+      router.push('/')
+    }
+  }, [user, loading, router])
+
+  // Demo users for different roles (for testing)
+  const demoUsers = [
+    { 
+      email: 'admin@edupe.de', 
+      label: 'Administrator Demo',
+      description: 'Vollzugriff auf alle Funktionen',
+      icon: ShieldCheckIcon,
+      color: 'blue'
+    },
+    { 
+      email: 'helper@edupe.de', 
+      label: 'Helfer Demo',
+      description: 'Zugriff auf eigene Fälle und Services',
+      icon: UserIcon,
+      color: 'green'
+    },
+    { 
+      email: 'jugendamt@frankfurt.de', 
+      label: 'Jugendamt Demo',
+      description: 'Zugriff auf eigene Fälle und Berichte',
+      icon: BuildingOfficeIcon,
+      color: 'purple'
+    }
+  ]
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -45,64 +71,38 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Check demo credentials
-      const demoUser = demoUsers[userType]
-      if (formData.email === demoUser.email && formData.password === demoUser.password) {
-        // Store auth data (in real app this would be JWT tokens)
-        localStorage.setItem('auth_token', 'demo_token_' + userType)
-        localStorage.setItem('user_data', JSON.stringify({
-          id: userType + '_1',
-          name: demoUser.name,
-          email: demoUser.email,
-          role: userType
-        }))
-
-        router.push('/')
-      } else {
-        setError('Ungültige Anmeldedaten')
-      }
+      await signIn(formData.email, formData.password)
+      // Redirect will happen automatically via useEffect when user state updates
     } catch (error) {
-      setError('Anmeldung fehlgeschlagen')
+      console.error('Login error:', error)
+      setError(error.message || 'Anmeldung fehlgeschlagen')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleDemoLogin = (type) => {
-    setUserType(type)
+  const handleDemoLogin = (demoEmail) => {
     setFormData({
-      email: demoUsers[type].email,
-      password: demoUsers[type].password,
-      rememberMe: false
+      ...formData,
+      email: demoEmail,
+      password: 'demo123' // Demo password
     })
   }
 
-  const userTypeOptions = [
-    {
-      type: 'admin',
-      title: 'Administrator',
-      description: 'Vollzugriff auf alle Funktionen',
-      icon: ShieldCheckIcon,
-      color: 'blue'
-    },
-    {
-      type: 'helper',
-      title: 'Helfer',
-      description: 'Zugriff auf eigene Fälle und Services',
-      icon: UserIcon,
-      color: 'green'
-    },
-    {
-      type: 'jugendamt',
-      title: 'Jugendamt',
-      description: 'Zugriff auf eigene Fälle und Berichte',
-      icon: BuildingOfficeIcon,
-      color: 'purple'
-    }
-  ]
+  // Show loading if auth is still initializing
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+            <span className="text-2xl font-bold text-white">E</span>
+          </div>
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Laden...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -139,32 +139,32 @@ export default function Login() {
                 </div>
               )}
 
-              {/* User Type Selection */}
+              {/* Demo Login Options */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Anmelden als:
+                  Demo-Anmeldung:
                 </label>
                 <div className="grid grid-cols-1 gap-2">
-                  {userTypeOptions.map((option) => (
+                  {demoUsers.map((demo) => (
                     <button
-                      key={option.type}
+                      key={demo.email}
                       type="button"
-                      onClick={() => handleDemoLogin(option.type)}
+                      onClick={() => handleDemoLogin(demo.email)}
                       className={`p-3 rounded-xl border-2 transition-all text-left ${
-                        userType === option.type
+                        formData.email === demo.email
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <option.icon className={`w-5 h-5 ${
-                          userType === option.type 
+                        <demo.icon className={`w-5 h-5 ${
+                          formData.email === demo.email 
                             ? 'text-blue-600' 
                             : 'text-gray-400'
                         }`} />
                         <div>
-                          <p className="font-medium text-gray-900">{option.title}</p>
-                          <p className="text-xs text-gray-600">{option.description}</p>
+                          <p className="font-medium text-gray-900">{demo.label}</p>
+                          <p className="text-xs text-gray-600">{demo.description}</p>
                         </div>
                       </div>
                     </button>
@@ -278,9 +278,9 @@ export default function Login() {
                 <div className="flex items-start gap-2">
                   <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-sm font-medium text-blue-900">Demo-Modus</h3>
+                    <h3 className="text-sm font-medium text-blue-900">Demo-Zugang</h3>
                     <p className="text-xs text-blue-800 mt-1">
-                      Klicken Sie auf einen Benutzertyp oben, um die Demo-Anmeldedaten automatisch zu laden.
+                      Klicken Sie auf einen Demo-Benutzer oben und verwenden Sie das Passwort "demo123" für den Login.
                     </p>
                   </div>
                 </div>
