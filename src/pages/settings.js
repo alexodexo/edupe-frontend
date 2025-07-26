@@ -1,8 +1,12 @@
 // src/pages/settings.js
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Layout from '@/components/Layout'
 import { NotificationSettings } from '@/lib/notifications'
+import { useAuth } from '@/lib/auth'
+import { useNotifications } from '@/lib/notifications'
+import { supabase } from '@/lib/supabase'
+import { LoadingSpinner } from '@/components/Loading'
 import { 
   BuildingOfficeIcon,
   UserGroupIcon,
@@ -17,23 +21,54 @@ import {
   ArchiveBoxIcon,
   KeyIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  UserCircleIcon,
+  PhotoIcon,
+  EyeIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline'
-import { useNotifications } from '@/lib/notifications'
+import { GESCHLECHT, transformToDatabase } from '@/lib/types'
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('company')
-  const { success } = useNotifications()
+  const { user, userRole, userProfile, hasRole } = useAuth()
+  const { success, error } = useNotifications()
+  const [activeTab, setActiveTab] = useState('profile')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const tabs = [
-    { id: 'company', name: 'Unternehmen', icon: BuildingOfficeIcon },
-    { id: 'users', name: 'Benutzer', icon: UserGroupIcon },
-    { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon },
-    { id: 'billing', name: 'Abrechnung', icon: CurrencyEuroIcon },
-    { id: 'system', name: 'System', icon: CogIcon },
-    { id: 'security', name: 'Sicherheit', icon: ShieldCheckIcon },
-    { id: 'data', name: 'Datenmanagement', icon: ArchiveBoxIcon },
-  ]
+  // Define available tabs based on user role
+  const getAvailableTabs = () => {
+    const baseTabs = [
+      { id: 'profile', name: 'Profil', icon: UserCircleIcon }
+    ]
+
+    if (hasRole('admin')) {
+      return [
+        ...baseTabs,
+        { id: 'company', name: 'Unternehmen', icon: BuildingOfficeIcon },
+        { id: 'users', name: 'Benutzer', icon: UserGroupIcon },
+        { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon },
+        { id: 'billing', name: 'Abrechnung', icon: CurrencyEuroIcon },
+        { id: 'system', name: 'System', icon: CogIcon },
+        { id: 'security', name: 'Sicherheit', icon: ShieldCheckIcon },
+        { id: 'data', name: 'Datenmanagement', icon: ArchiveBoxIcon },
+      ]
+    } else if (hasRole('helper')) {
+      return [
+        ...baseTabs,
+        { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon },
+        { id: 'privacy', name: 'Datenschutz', icon: ShieldCheckIcon }
+      ]
+    } else if (hasRole('jugendamt')) {
+      return [
+        ...baseTabs,
+        { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon }
+      ]
+    }
+
+    return baseTabs
+  }
+
+  const tabs = getAvailableTabs()
 
   const handleSave = () => {
     success('Einstellungen wurden erfolgreich gespeichert')
@@ -76,18 +111,470 @@ export default function Settings() {
           {/* Content */}
           <div className="flex-1">
             <div className="card">
-              {activeTab === 'company' && <CompanySettings onSave={handleSave} />}
-              {activeTab === 'users' && <UserSettings onSave={handleSave} />}
+              {activeTab === 'profile' && <ProfileSettings onSave={handleSave} />}
+              {activeTab === 'company' && hasRole('admin') && <CompanySettings onSave={handleSave} />}
+              {activeTab === 'users' && hasRole('admin') && <UserSettings onSave={handleSave} />}
               {activeTab === 'notifications' && <NotificationSettings />}
-              {activeTab === 'billing' && <BillingSettings onSave={handleSave} />}
-              {activeTab === 'system' && <SystemSettings onSave={handleSave} />}
-              {activeTab === 'security' && <SecuritySettings onSave={handleSave} />}
-              {activeTab === 'data' && <DataSettings onSave={handleSave} />}
+              {activeTab === 'billing' && hasRole('admin') && <BillingSettings onSave={handleSave} />}
+              {activeTab === 'system' && hasRole('admin') && <SystemSettings onSave={handleSave} />}
+              {activeTab === 'security' && hasRole('admin') && <SecuritySettings onSave={handleSave} />}
+              {activeTab === 'data' && hasRole('admin') && <DataSettings onSave={handleSave} />}
+              {activeTab === 'privacy' && <PrivacySettings onSave={handleSave} />}
             </div>
           </div>
         </div>
       </div>
     </Layout>
+  )
+}
+
+// Profile Settings Component
+function ProfileSettings({ onSave }) {
+  const { user, userRole, userProfile } = useAuth()
+  const { success, error } = useNotifications()
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  
+  // Initialize form data based on user role
+  const getInitialFormData = () => {
+    if (userRole === 'helper') {
+      return {
+        vorname: userProfile?.vorname || '',
+        nachname: userProfile?.nachname || '',
+        email: userProfile?.email || user?.email || '',
+        telefon_nummer: userProfile?.telefon_nummer || '',
+        strasse: userProfile?.strasse || '',
+        plz: userProfile?.plz || '',
+        stadt: userProfile?.stadt || '',
+        geburtsdatum: userProfile?.geburtsdatum || '',
+        geschlecht: userProfile?.geschlecht || '',
+        staatsangehoerigkeit: userProfile?.staatsangehoerigkeit || '',
+        religion: userProfile?.religion || '',
+        iban: userProfile?.iban || '',
+        steuernummer: userProfile?.steuernummer || ''
+      }
+    } else if (userRole === 'jugendamt') {
+      return {
+        name: userProfile?.name || '',
+        mail: userProfile?.mail || user?.email || '',
+        telefon: userProfile?.telefon || '',
+        jugendamt: userProfile?.jugendamt || ''
+      }
+    }
+    return {
+      email: user?.email || '',
+      name: user?.user_metadata?.name || ''
+    }
+  }
+
+  const [formData, setFormData] = useState(getInitialFormData())
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      let updateData = {}
+      let tableName = ''
+
+      if (userRole === 'helper') {
+        updateData = transformToDatabase.helper(formData)
+        tableName = 'helfer'
+        
+        const { error: updateError } = await supabase
+          .from(tableName)
+          .update(updateData)
+          .eq('helfer_id', userProfile.helfer_id)
+
+        if (updateError) throw updateError
+      } else if (userRole === 'jugendamt') {
+        updateData = {
+          name: formData.name,
+          mail: formData.mail,
+          telefon: formData.telefon,
+          jugendamt: formData.jugendamt,
+          aktualisiert_am: new Date().toISOString()
+        }
+        tableName = 'jugendamt_ansprechpartner'
+        
+        const { error: updateError } = await supabase
+          .from(tableName)
+          .update(updateData)
+          .eq('ansprechpartner_id', userProfile.ansprechpartner_id)
+
+        if (updateError) throw updateError
+      }
+
+      // Update auth user if email changed
+      if (formData.email && formData.email !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({
+          email: formData.email
+        })
+        
+        if (authError) throw authError
+      }
+
+      success('Profil wurde erfolgreich aktualisiert')
+      onSave()
+    } catch (err) {
+      error('Fehler beim Aktualisieren des Profils: ' + err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      error('Passwörter stimmen nicht überein')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      })
+
+      if (passwordError) throw passwordError
+
+      success('Passwort wurde erfolgreich geändert')
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setShowPasswordForm(false)
+    } catch (err) {
+      error('Fehler beim Ändern des Passworts: ' + err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">Profil-Einstellungen</h2>
+        <UserCircleIcon className="w-6 h-6 text-gray-400" />
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Info for all roles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {userRole === 'helper' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vorname *
+                </label>
+                <input
+                  type="text"
+                  value={formData.vorname}
+                  onChange={(e) => setFormData({...formData, vorname: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nachname *
+                </label>
+                <input
+                  type="text"
+                  value={formData.nachname}
+                  onChange={(e) => setFormData({...formData, nachname: e.target.value})}
+                  className="input"
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {userRole === 'jugendamt' && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Name *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="input"
+                required
+              />
+            </div>
+          )}
+
+          <div className={userRole === 'admin' ? 'md:col-span-2' : ''}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-Mail *
+            </label>
+            <input
+              type="email"
+              value={formData.email || formData.mail}
+              onChange={(e) => setFormData({
+                ...formData, 
+                [userRole === 'jugendamt' ? 'mail' : 'email']: e.target.value
+              })}
+              className="input"
+              required
+            />
+          </div>
+
+          {(userRole === 'helper' || userRole === 'jugendamt') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefon
+              </label>
+              <input
+                type="tel"
+                value={formData.telefon_nummer || formData.telefon}
+                onChange={(e) => setFormData({
+                  ...formData, 
+                  [userRole === 'helper' ? 'telefon_nummer' : 'telefon']: e.target.value
+                })}
+                className="input"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Additional fields for helpers */}
+        {userRole === 'helper' && (
+          <>
+            {/* Address */}
+            <div>
+              <h3 className="text-md font-medium text-gray-900 mb-3">Adresse</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Straße
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.strasse}
+                    onChange={(e) => setFormData({...formData, strasse: e.target.value})}
+                    className="input"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      PLZ
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.plz}
+                      onChange={(e) => setFormData({...formData, plz: e.target.value})}
+                      className="input"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stadt
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.stadt}
+                      onChange={(e) => setFormData({...formData, stadt: e.target.value})}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Personal Info */}
+            <div>
+              <h3 className="text-md font-medium text-gray-900 mb-3">Persönliche Informationen</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Geburtsdatum
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.geburtsdatum}
+                    onChange={(e) => setFormData({...formData, geburtsdatum: e.target.value})}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Geschlecht
+                  </label>
+                  <select
+                    value={formData.geschlecht}
+                    onChange={(e) => setFormData({...formData, geschlecht: e.target.value})}
+                    className="input"
+                  >
+                    <option value="">Bitte wählen</option>
+                    <option value={GESCHLECHT.MAENNLICH}>Männlich</option>
+                    <option value={GESCHLECHT.WEIBLICH}>Weiblich</option>
+                    <option value={GESCHLECHT.DIVERS}>Divers</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Staatsangehörigkeit
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.staatsangehoerigkeit}
+                    onChange={(e) => setFormData({...formData, staatsangehoerigkeit: e.target.value})}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Religion
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.religion}
+                    onChange={(e) => setFormData({...formData, religion: e.target.value})}
+                    className="input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Banking Info */}
+            <div>
+              <h3 className="text-md font-medium text-gray-900 mb-3">Bankdaten</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    IBAN
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.iban}
+                    onChange={(e) => setFormData({...formData, iban: e.target.value})}
+                    className="input"
+                    placeholder="DE89 3704 0044 0532 0130 00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Steuernummer
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.steuernummer}
+                    onChange={(e) => setFormData({...formData, steuernummer: e.target.value})}
+                    className="input"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Additional fields for Jugendamt */}
+        {userRole === 'jugendamt' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Jugendamt
+            </label>
+            <input
+              type="text"
+              value={formData.jugendamt}
+              onChange={(e) => setFormData({...formData, jugendamt: e.target.value})}
+              className="input"
+              placeholder="z.B. Jugendamt Frankfurt"
+            />
+          </div>
+        )}
+
+        <div className="pt-4 border-t">
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className="btn-primary"
+          >
+            {isLoading ? (
+              <>
+                <LoadingSpinner size="small" />
+                Speichere...
+              </>
+            ) : (
+              <>
+                <CheckCircleIcon className="w-5 h-5" />
+                Profil speichern
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+
+      {/* Password Change Section */}
+      <div className="mt-8 pt-6 border-t">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-md font-medium text-gray-900">Passwort ändern</h3>
+          <button
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            className="btn-secondary"
+          >
+            {showPasswordForm ? 'Abbrechen' : 'Passwort ändern'}
+          </button>
+        </div>
+
+        {showPasswordForm && (
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Neues Passwort
+              </label>
+              <input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                className="input"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Passwort bestätigen
+              </label>
+              <input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                className="input"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <button type="submit" disabled={isLoading} className="btn-primary">
+              {isLoading ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Ändere Passwort...
+                </>
+              ) : (
+                'Passwort ändern'
+              )}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -103,8 +590,7 @@ function CompanySettings({ onSave }) {
     email: 'info@edupe.de',
     website: 'https://www.edupe.de',
     taxNumber: 'DE123456789',
-    vatId: 'DE987654321',
-    logo: null
+    vatId: 'DE987654321'
   })
 
   const handleSubmit = (e) => {
@@ -120,25 +606,6 @@ function CompanySettings({ onSave }) {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Logo Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Firmenlogo
-          </label>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center">
-              <span className="text-2xl font-bold text-gray-400">E</span>
-            </div>
-            <div>
-              <button type="button" className="btn-secondary">
-                Logo hochladen
-              </button>
-              <p className="text-xs text-gray-500 mt-1">PNG, JPG bis 2MB</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Company Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -166,7 +633,6 @@ function CompanySettings({ onSave }) {
           </div>
         </div>
 
-        {/* Address */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Adresse *
@@ -208,7 +674,6 @@ function CompanySettings({ onSave }) {
           </div>
         </div>
 
-        {/* Contact */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -248,7 +713,6 @@ function CompanySettings({ onSave }) {
           />
         </div>
 
-        {/* Tax Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -286,13 +750,60 @@ function CompanySettings({ onSave }) {
   )
 }
 
-// User Settings Component
+// User Settings Component  
 function UserSettings({ onSave }) {
-  const [users] = useState([
-    { id: 1, name: 'Max Admin', email: 'max@edupe.de', role: 'Administrator', status: 'active' },
-    { id: 2, name: 'Anna Koordinator', email: 'anna@edupe.de', role: 'Koordinator', status: 'active' },
-    { id: 3, name: 'Tom Sachbearbeiter', email: 'tom@edupe.de', role: 'Sachbearbeiter', status: 'inactive' },
-  ])
+  const { success, error } = useNotifications()
+  const [users, setUsers] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    try {
+      // Fetch helpers
+      const { data: helpers, error: helpersError } = await supabase
+        .from('helfer')
+        .select('helfer_id, vorname, nachname, email, erstellt_am')
+
+      if (helpersError) throw helpersError
+
+      // Fetch jugendamt users
+      const { data: jugendamt, error: jugendamtError } = await supabase
+        .from('jugendamt_ansprechpartner')
+        .select('ansprechpartner_id, name, mail, jugendamt, erstellt_am')
+
+      if (jugendamtError) throw jugendamtError
+
+      // Combine and format users
+      const formattedUsers = [
+        ...helpers.map(h => ({
+          id: h.helfer_id,
+          name: `${h.vorname} ${h.nachname}`,
+          email: h.email,
+          role: 'Helfer',
+          status: 'active',
+          createdAt: h.erstellt_am
+        })),
+        ...jugendamt.map(j => ({
+          id: j.ansprechpartner_id,
+          name: j.name,
+          email: j.mail,
+          role: 'Jugendamt',
+          organization: j.jugendamt,
+          status: 'active',
+          createdAt: j.erstellt_am
+        }))
+      ]
+
+      setUsers(formattedUsers)
+    } catch (err) {
+      error('Fehler beim Laden der Benutzer: ' + err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="p-6">
@@ -303,32 +814,49 @@ function UserSettings({ onSave }) {
         </button>
       </div>
 
-      <div className="space-y-4">
-        {users.map((user) => (
-          <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="font-semibold text-gray-600">
-                  {user.name.split(' ').map(n => n[0]).join('')}
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="animate-pulse flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
+              <div className="rounded-full bg-gray-200 h-12 w-12"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {users.map((user) => (
+            <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                  <span className="font-semibold text-gray-600">
+                    {user.name.split(' ').map(n => n[0]).join('')}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{user.name}</p>
+                  <p className="text-sm text-gray-600">{user.email}</p>
+                  {user.organization && (
+                    <p className="text-xs text-gray-500">{user.organization}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="badge badge-blue">{user.role}</span>
+                <span className={`badge ${user.status === 'active' ? 'badge-green' : 'badge-gray'}`}>
+                  {user.status === 'active' ? 'Aktiv' : 'Inaktiv'}
                 </span>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">{user.name}</p>
-                <p className="text-sm text-gray-600">{user.email}</p>
+                <button className="btn-ghost p-2">
+                  <CogIcon className="w-5 h-5" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="badge badge-blue">{user.role}</span>
-              <span className={`badge ${user.status === 'active' ? 'badge-green' : 'badge-gray'}`}>
-                {user.status === 'active' ? 'Aktiv' : 'Inaktiv'}
-              </span>
-              <button className="btn-ghost p-2">
-                <CogIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -405,41 +933,12 @@ function BillingSettings({ onSave }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nummerierung
-            </label>
-            <select
-              value={settings.invoiceNumbering}
-              onChange={(e) => setSettings({...settings, invoiceNumbering: e.target.value})}
-              className="input"
-            >
-              <option value="yearly">Jährlich zurücksetzen</option>
-              <option value="continuous">Fortlaufend</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
               Zahlungsziel (Tage)
             </label>
             <input
               type="number"
               value={settings.paymentTerms}
               onChange={(e) => setSettings({...settings, paymentTerms: parseInt(e.target.value)})}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mehrwertsteuersatz (%)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={settings.taxRate}
-              onChange={(e) => setSettings({...settings, taxRate: parseFloat(e.target.value)})}
               className="input"
             />
           </div>
@@ -493,8 +992,7 @@ function SystemSettings({ onSave }) {
     language: 'de',
     backupInterval: 'daily',
     maintenanceMode: false,
-    debugMode: false,
-    apiRateLimit: 1000
+    debugMode: false
   })
 
   const handleSubmit = (e) => {
@@ -542,53 +1040,6 @@ function SystemSettings({ onSave }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Datumsformat
-            </label>
-            <select
-              value={settings.dateFormat}
-              onChange={(e) => setSettings({...settings, dateFormat: e.target.value})}
-              className="input"
-            >
-              <option value="DD.MM.YYYY">DD.MM.YYYY</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Zeitformat
-            </label>
-            <select
-              value={settings.timeFormat}
-              onChange={(e) => setSettings({...settings, timeFormat: e.target.value})}
-              className="input"
-            >
-              <option value="24h">24-Stunden</option>
-              <option value="12h">12-Stunden (AM/PM)</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Backup-Intervall
-          </label>
-          <select
-            value={settings.backupInterval}
-            onChange={(e) => setSettings({...settings, backupInterval: e.target.value})}
-            className="input"
-          >
-            <option value="hourly">Stündlich</option>
-            <option value="daily">Täglich</option>
-            <option value="weekly">Wöchentlich</option>
-            <option value="monthly">Monatlich</option>
-          </select>
-        </div>
-
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <input
@@ -630,16 +1081,6 @@ function SystemSettings({ onSave }) {
 
 // Security Settings Component
 function SecuritySettings({ onSave }) {
-  const [settings, setSettings] = useState({
-    twoFactorAuth: true,
-    sessionTimeout: 8,
-    passwordPolicy: 'strong',
-    loginAttempts: 5,
-    ipWhitelist: '',
-    auditLog: true,
-    encryptData: true
-  })
-
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -654,84 +1095,20 @@ function SecuritySettings({ onSave }) {
             <div>
               <h3 className="font-medium text-yellow-900">Wichtiger Hinweis</h3>
               <p className="text-sm text-yellow-800 mt-1">
-                Änderungen an den Sicherheitseinstellungen können die Anmeldung beeinträchtigen. 
-                Stellen Sie sicher, dass Sie Zugriff auf alternative Anmeldemethoden haben.
+                Sicherheitseinstellungen werden von Supabase verwaltet. 
+                Weitere Optionen sind in der Supabase-Konsole verfügbar.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div>
-              <h3 className="font-medium text-gray-900">Zwei-Faktor-Authentifizierung</h3>
-              <p className="text-sm text-gray-600">Zusätzliche Sicherheit für Anmeldungen</p>
-            </div>
-            <button
-              onClick={() => setSettings({...settings, twoFactorAuth: !settings.twoFactorAuth})}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                settings.twoFactorAuth ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  settings.twoFactorAuth ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Session-Timeout (Stunden)
-              </label>
-              <input
-                type="number"
-                value={settings.sessionTimeout}
-                onChange={(e) => setSettings({...settings, sessionTimeout: parseInt(e.target.value)})}
-                className="input"
-                min="1"
-                max="24"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max. Anmeldeversuche
-              </label>
-              <input
-                type="number"
-                value={settings.loginAttempts}
-                onChange={(e) => setSettings({...settings, loginAttempts: parseInt(e.target.value)})}
-                className="input"
-                min="3"
-                max="10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Passwort-Richtlinie
-            </label>
-            <select
-              value={settings.passwordPolicy}
-              onChange={(e) => setSettings({...settings, passwordPolicy: e.target.value})}
-              className="input"
-            >
-              <option value="basic">Basis (min. 8 Zeichen)</option>
-              <option value="strong">Stark (Groß-/Kleinbuchstaben, Zahlen)</option>
-              <option value="complex">Komplex (+ Sonderzeichen)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="pt-4">
-          <button onClick={onSave} className="btn-primary">
-            <CheckCircleIcon className="w-5 h-5" />
-            Sicherheitseinstellungen speichern
-          </button>
+        <div className="text-center py-8">
+          <ShieldCheckIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Sicherheit wird von Supabase verwaltet</h3>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Authentifizierung, Passwort-Richtlinien und andere Sicherheitsfeatures 
+            werden automatisch von Supabase bereitgestellt.
+          </p>
         </div>
       </div>
     </div>
@@ -740,13 +1117,32 @@ function SecuritySettings({ onSave }) {
 
 // Data Settings Component  
 function DataSettings({ onSave }) {
-  const [settings, setSettings] = useState({
-    dataRetention: '7',
-    autoBackup: true,
-    exportFormat: 'json',
-    gdprCompliance: true,
-    anonymizeData: false
-  })
+  const { success, error } = useNotifications()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const exportData = async (type) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/export/${type}`)
+      if (!response.ok) throw new Error('Export fehlgeschlagen')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${type}_export_${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      success('Daten wurden erfolgreich exportiert')
+    } catch (err) {
+      error('Fehler beim Export: ' + err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="p-6">
@@ -757,88 +1153,149 @@ function DataSettings({ onSave }) {
 
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Datenaufbewahrung
-          </label>
-          <select
-            value={settings.dataRetention}
-            onChange={(e) => setSettings({...settings, dataRetention: e.target.value})}
-            className="input"
-          >
-            <option value="1">1 Jahr</option>
-            <option value="3">3 Jahre</option>
-            <option value="5">5 Jahre</option>
-            <option value="7">7 Jahre (Standard)</option>
-            <option value="10">10 Jahre</option>
-            <option value="0">Unbegrenzt</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Gesetzliche Aufbewahrungsfristen beachten
+          <h3 className="font-medium text-gray-900 mb-3">Datenexport</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Exportieren Sie Ihre Daten in verschiedenen Formaten.
           </p>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div>
-              <h3 className="font-medium text-gray-900">Automatische Backups</h3>
-              <p className="text-sm text-gray-600">Tägliche Sicherungskopien erstellen</p>
-            </div>
-            <button
-              onClick={() => setSettings({...settings, autoBackup: !settings.autoBackup})}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                settings.autoBackup ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button 
+              onClick={() => exportData('all')}
+              disabled={isLoading}
+              className="btn-secondary"
             >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  settings.autoBackup ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
+              Alle Daten exportieren
             </button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div>
-              <h3 className="font-medium text-gray-900">DSGVO-Konformität</h3>
-              <p className="text-sm text-gray-600">Datenschutz-Grundverordnung einhalten</p>
-            </div>
-            <button
-              onClick={() => setSettings({...settings, gdprCompliance: !settings.gdprCompliance})}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                settings.gdprCompliance ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
+            <button 
+              onClick={() => exportData('cases')}
+              disabled={isLoading}
+              className="btn-secondary"
             >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  settings.gdprCompliance ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
+              Nur Fälle exportieren
+            </button>
+            <button 
+              onClick={() => exportData('helpers')}
+              disabled={isLoading}
+              className="btn-secondary"
+            >
+              Nur Helfer exportieren
+            </button>
+            <button 
+              onClick={() => exportData('services')}
+              disabled={isLoading}
+              className="btn-secondary"
+            >
+              Nur Leistungen exportieren
             </button>
           </div>
         </div>
 
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="font-medium text-red-900 mb-2">Gefährliche Aktionen</h3>
+          <h3 className="font-medium text-red-900 mb-2">DSGVO-Funktionen</h3>
+          <p className="text-sm text-red-800 mb-4">
+            Funktionen zur Einhaltung der Datenschutz-Grundverordnung.
+          </p>
           <div className="space-y-3">
             <button className="btn bg-red-600 text-white hover:bg-red-700 w-full">
-              Alle Daten exportieren
+              Datenauskunft erstellen
             </button>
             <button className="btn bg-red-600 text-white hover:bg-red-700 w-full">
-              Alle Daten löschen
+              Daten anonymisieren
             </button>
           </div>
           <p className="text-xs text-red-700 mt-2">
             Diese Aktionen können nicht rückgängig gemacht werden!
           </p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Privacy Settings Component
+function PrivacySettings({ onSave }) {
+  const [settings, setSettings] = useState({
+    profileVisibility: 'team',
+    allowDataSharing: false,
+    allowNotifications: true,
+    allowAnalytics: false
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave()
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">Datenschutz-Einstellungen</h2>
+        <ShieldCheckIcon className="w-6 h-6 text-gray-400" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Profil-Sichtbarkeit
+          </label>
+          <select
+            value={settings.profileVisibility}
+            onChange={(e) => setSettings({...settings, profileVisibility: e.target.value})}
+            className="input"
+          >
+            <option value="public">Öffentlich</option>
+            <option value="team">Nur Team</option>
+            <option value="private">Privat</option>
+          </select>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-gray-900">Datenfreigabe erlauben</h3>
+              <p className="text-sm text-gray-600">Daten für Verbesserungen verwenden</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.allowDataSharing}
+              onChange={(e) => setSettings({...settings, allowDataSharing: e.target.checked})}
+              className="rounded"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-gray-900">Benachrichtigungen</h3>
+              <p className="text-sm text-gray-600">System-Benachrichtigungen erhalten</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.allowNotifications}
+              onChange={(e) => setSettings({...settings, allowNotifications: e.target.checked})}
+              className="rounded"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-gray-900">Analytik</h3>
+              <p className="text-sm text-gray-600">Nutzungsanalyse zulassen</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.allowAnalytics}
+              onChange={(e) => setSettings({...settings, allowAnalytics: e.target.checked})}
+              className="rounded"
+            />
+          </div>
+        </div>
 
         <div className="pt-4">
-          <button onClick={onSave} className="btn-primary">
+          <button type="submit" className="btn-primary">
             <CheckCircleIcon className="w-5 h-5" />
-            Dateneinstellungen speichern
+            Datenschutz-Einstellungen speichern
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
