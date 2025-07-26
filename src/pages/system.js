@@ -84,7 +84,7 @@ export default function System() {
             {sensorStatus.map((sensor, index) => (
               <div key={index} className="bg-gray-50 rounded-xl p-4">
                 <h3 className="font-medium text-gray-900 mb-1">{sensor.type}</h3>
-                <p className="text-sm text-gray-600 mb-3">"{sensor.name}"</p>
+                <p className="text-sm text-gray-600 mb-3">&ldquo;{sensor.name}&rdquo;</p>
                 
                 <div className="temp-display mb-3">
                   {sensor.value?.toFixed(1) || '--'}°C

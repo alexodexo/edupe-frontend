@@ -1,6 +1,7 @@
 // src/lib/auth.js
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { ShieldCheckIcon } from '@heroicons/react/24/outline'
 
 const AuthContext = createContext()
 

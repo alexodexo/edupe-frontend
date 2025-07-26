@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { motion } from 'framer-motion'
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -12,12 +11,9 @@ import {
   ShieldCheckIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline'
-import { useNotifications } from '@/lib/notifications'
-import { useFormValidation } from '@/hooks/useData'
 
 export default function Login() {
   const router = useRouter()
-  const { error: showError, success } = useNotifications()
   
   const [formData, setFormData] = useState({
     email: '',
@@ -28,22 +24,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [userType, setUserType] = useState('admin') // admin, helper, jugendamt
-
-  // Form validation schema
-  const validationSchema = {
-    email: {
-      required: true,
-      pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-      message: 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
-    },
-    password: {
-      required: true,
-      minLength: 6,
-      message: 'Passwort muss mindestens 6 Zeichen lang sein'
-    }
-  }
-
-  const { errors, touched, validate, touch, getFieldError } = useFormValidation(validationSchema)
+  const [error, setError] = useState('')
 
   // Demo users for different roles
   const demoUsers = {
@@ -54,9 +35,10 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
     
-    if (!validate(formData)) {
-      Object.keys(formData).forEach(touch)
+    if (!formData.email || !formData.password) {
+      setError('Bitte füllen Sie alle Felder aus')
       return
     }
 
@@ -78,13 +60,12 @@ export default function Login() {
           role: userType
         }))
 
-        success(`Willkommen zurück, ${demoUser.name}!`)
         router.push('/')
       } else {
-        throw new Error('Ungültige Anmeldedaten')
+        setError('Ungültige Anmeldedaten')
       }
     } catch (error) {
-      showError(error.message || 'Anmeldung fehlgeschlagen')
+      setError('Anmeldung fehlgeschlagen')
     } finally {
       setIsLoading(false)
     }
@@ -134,11 +115,7 @@ export default function Login() {
         <div className="flex flex-col justify-center min-h-screen py-12 sm:px-6 lg:px-8">
           
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="sm:mx-auto sm:w-full sm:max-w-md"
-          >
+          <div className="sm:mx-auto sm:w-full sm:max-w-md">
             <div className="flex justify-center">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <span className="text-2xl font-bold text-white">E</span>
@@ -150,16 +127,18 @@ export default function Login() {
             <p className="mt-2 text-center text-sm text-gray-600">
               Melden Sie sich an, um fortzufahren
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-8 sm:mx-auto sm:w-full sm:max-w-md"
-          >
+          <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
             <div className="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100">
               
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
               {/* User Type Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -173,14 +152,14 @@ export default function Login() {
                       onClick={() => handleDemoLogin(option.type)}
                       className={`p-3 rounded-xl border-2 transition-all text-left ${
                         userType === option.type
-                          ? `border-${option.color}-500 bg-${option.color}-50`
+                          ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <option.icon className={`w-5 h-5 ${
                           userType === option.type 
-                            ? `text-${option.color}-600` 
+                            ? 'text-blue-600' 
                             : 'text-gray-400'
                         }`} />
                         <div>
@@ -210,14 +189,10 @@ export default function Login() {
                       autoComplete="email"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      onBlur={() => touch('email')}
-                      className={`input pl-10 ${getFieldError('email') ? 'border-red-300' : ''}`}
+                      className="input pl-10"
                       placeholder="ihre@email.de"
                     />
                   </div>
-                  {getFieldError('email') && (
-                    <p className="mt-1 text-sm text-red-600">{getFieldError('email')}</p>
-                  )}
                 </div>
 
                 {/* Password Field */}
@@ -236,8 +211,7 @@ export default function Login() {
                       autoComplete="current-password"
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      onBlur={() => touch('password')}
-                      className={`input pl-10 pr-10 ${getFieldError('password') ? 'border-red-300' : ''}`}
+                      className="input pl-10 pr-10"
                       placeholder="Ihr Passwort"
                     />
                     <button
@@ -252,9 +226,6 @@ export default function Login() {
                       )}
                     </button>
                   </div>
-                  {getFieldError('password') && (
-                    <p className="mt-1 text-sm text-red-600">{getFieldError('password')}</p>
-                  )}
                 </div>
 
                 {/* Remember Me & Forgot Password */}
@@ -315,19 +286,14 @@ export default function Login() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Footer */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mt-8 text-center"
-          >
+          <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               © 2024 Edupe Digital. Alle Rechte vorbehalten.
             </p>
-          </motion.div>
+          </div>
         </div>
       </div>
     </>
