@@ -4,8 +4,8 @@ import Head from 'next/head'
 
 
 
-import { 
-  UsersIcon, 
+import {
+  UsersIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
   CurrencyEuroIcon,
@@ -21,9 +21,9 @@ import {
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline'
 import Layout from '@/components/Layout'
-import { 
-  DUMMY_CASES, 
-  DUMMY_SERVICES, 
+import {
+  DUMMY_CASES,
+  DUMMY_SERVICES,
   DUMMY_HELPERS,
   CASE_STATUS,
   SERVICE_STATUS,
@@ -42,13 +42,13 @@ export default function Dashboard() {
     const activeCases = DUMMY_CASES.filter(c => c.status === CASE_STATUS.ACTIVE).length
     const availableHelpers = DUMMY_HELPERS.filter(h => h.availability === HELPER_AVAILABILITY.AVAILABLE).length
     const totalHelpers = DUMMY_HELPERS.length
-    
+
     // This week's hours (mock calculation)
     const thisWeekHours = DUMMY_SERVICES.reduce((sum, service) => {
       const serviceDate = new Date(service.date)
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      
+
       if (serviceDate >= weekAgo && serviceDate <= now) {
         return sum + service.duration
       }
@@ -59,7 +59,7 @@ export default function Dashboard() {
     const thisMonthRevenue = DUMMY_SERVICES.reduce((sum, service) => {
       const serviceDate = new Date(service.date)
       const now = new Date()
-      
+
       if (serviceDate.getMonth() === now.getMonth() && serviceDate.getFullYear() === now.getFullYear()) {
         return sum + service.costs
       }
@@ -67,35 +67,35 @@ export default function Dashboard() {
     }, 0)
 
     return [
-      { 
-        name: 'Verfügbare Helfer', 
-        value: `${availableHelpers}/${totalHelpers}`, 
+      {
+        name: 'Verfügbare Helfer',
+        value: `${availableHelpers}/${totalHelpers}`,
         change: '+3',
-        changeType: 'increase', 
+        changeType: 'increase',
         icon: UsersIcon,
         description: 'Helfer bereit für neue Fälle'
       },
-      { 
-        name: 'Aktive Fälle', 
-        value: activeCases.toString(), 
+      {
+        name: 'Aktive Fälle',
+        value: activeCases.toString(),
         change: '+2',
-        changeType: 'increase', 
+        changeType: 'increase',
         icon: ClipboardDocumentCheckIcon,
         description: 'Laufende Betreuungen'
       },
-      { 
-        name: 'Stunden diese Woche', 
-        value: Math.round(thisWeekHours).toString(), 
+      {
+        name: 'Stunden diese Woche',
+        value: Math.round(thisWeekHours).toString(),
         change: '+18%',
-        changeType: 'increase', 
+        changeType: 'increase',
         icon: ClockIcon,
         description: 'Geleistete Arbeitsstunden'
       },
-      { 
-        name: 'Umsatz diesen Monat', 
-        value: formatCurrency(thisMonthRevenue), 
+      {
+        name: 'Umsatz diesen Monat',
+        value: formatCurrency(thisMonthRevenue),
         change: '+23%',
-        changeType: 'increase', 
+        changeType: 'increase',
         icon: CurrencyEuroIcon,
         description: 'Abrechenbare Leistungen'
       }
@@ -123,7 +123,7 @@ export default function Dashboard() {
     DUMMY_SERVICES.forEach(service => {
       const case_ = DUMMY_CASES.find(c => c.id === service.caseId)
       const helper = DUMMY_HELPERS.find(h => h.id === service.helperId)
-      
+
       activities.push({
         id: `service-${service.id}`,
         type: 'service_completed',
@@ -253,7 +253,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <select 
+            <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value)}
               className="input w-auto"
@@ -274,7 +274,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2">
               {urgentNotifications.map((notification) => (
-                <div 
+                <div
                   key={notification.id}
                   className={`p-3 rounded-lg ${getPriorityColor(notification.priority)} cursor-pointer hover:shadow-sm transition-all`}
                 >
@@ -292,7 +292,7 @@ export default function Dashboard() {
             <div key={stat.name} className="card p-6 relative overflow-hidden">
               {/* Background decoration */}
               <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-full -mr-12 -mt-12 opacity-50" />
-              
+
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-2 bg-blue-50 rounded-xl">
@@ -321,7 +321,7 @@ export default function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Recent Activities */}
           <div className="lg:col-span-2 card">
             <div className="p-6 border-b border-gray-200">
@@ -333,19 +333,17 @@ export default function Dashboard() {
                 return (
                   <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        activity.color === 'blue' ? 'bg-blue-50 text-blue-600' :
-                        activity.color === 'green' ? 'bg-green-50 text-green-600' :
-                        'bg-gray-50 text-gray-600'
-                      }`}>
+                      <div className={`p-2 rounded-lg ${activity.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                          activity.color === 'green' ? 'bg-green-50 text-green-600' :
+                            'bg-gray-50 text-gray-600'
+                        }`}>
                         <Icon className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm">{activity.title}</p>
                         <p className="text-gray-600 text-sm">{activity.description}</p>
-                        <p className="text-gray-500 text-xs mt-1">
-                          {formatDateTime(activity.time)}
-                        </p>
+                        
+
                       </div>
                     </div>
                   </div>
