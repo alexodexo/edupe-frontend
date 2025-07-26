@@ -16,13 +16,13 @@ import {
 export default function Login() {
   const router = useRouter()
   const { signIn, user, loading } = useAuth()
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false
   })
-  
+
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -36,22 +36,22 @@ export default function Login() {
 
   // Demo users for different roles (for testing)
   const demoUsers = [
-    { 
-      email: 'admin@edupe.de', 
+    {
+      email: 'admin@edupe.de',
       label: 'Administrator Demo',
       description: 'Vollzugriff auf alle Funktionen',
       icon: ShieldCheckIcon,
       color: 'blue'
     },
-    { 
-      email: 'helper@edupe.de', 
+    {
+      email: 'helper@edupe.de',
       label: 'Helfer Demo',
       description: 'Zugriff auf eigene Fälle und Services',
       icon: UserIcon,
       color: 'green'
     },
-    { 
-      email: 'jugendamt@frankfurt.de', 
+    {
+      email: 'jugendamt@frankfurt.de',
       label: 'Jugendamt Demo',
       description: 'Zugriff auf eigene Fälle und Berichte',
       icon: BuildingOfficeIcon,
@@ -62,7 +62,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
+
     if (!formData.email || !formData.password) {
       setError('Bitte füllen Sie alle Felder aus')
       return
@@ -113,7 +113,7 @@ export default function Login() {
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="flex flex-col justify-center min-h-screen py-12 sm:px-6 lg:px-8">
-          
+
           {/* Header */}
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
             <div className="flex justify-center">
@@ -131,7 +131,7 @@ export default function Login() {
 
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
             <div className="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100">
-              
+
               {/* Error Message */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -150,18 +150,16 @@ export default function Login() {
                       key={demo.email}
                       type="button"
                       onClick={() => handleDemoLogin(demo.email)}
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
-                        formData.email === demo.email
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${formData.email === demo.email
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <demo.icon className={`w-5 h-5 ${
-                          formData.email === demo.email 
-                            ? 'text-blue-600' 
+                        <demo.icon className={`w-5 h-5 ${formData.email === demo.email
+                            ? 'text-blue-600'
                             : 'text-gray-400'
-                        }`} />
+                          }`} />
                         <div>
                           <p className="font-medium text-gray-900">{demo.label}</p>
                           <p className="text-xs text-gray-600">{demo.description}</p>
@@ -188,7 +186,7 @@ export default function Login() {
                       type="email"
                       autoComplete="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="input pl-10"
                       placeholder="ihre@email.de"
                     />
@@ -210,7 +208,7 @@ export default function Login() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="input pl-10 pr-10"
                       placeholder="Ihr Passwort"
                     />
@@ -236,7 +234,7 @@ export default function Login() {
                       name="remember-me"
                       type="checkbox"
                       checked={formData.rememberMe}
-                      onChange={(e) => setFormData({...formData, rememberMe: e.target.checked})}
+                      onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
@@ -280,7 +278,7 @@ export default function Login() {
                   <div>
                     <h3 className="text-sm font-medium text-blue-900">Demo-Zugang</h3>
                     <p className="text-xs text-blue-800 mt-1">
-                      Klicken Sie auf einen Demo-Benutzer oben und verwenden Sie das Passwort "demo123" für den Login.
+                      Klicken Sie auf einen Demo-Benutzer oben und verwenden Sie das Passwort &quot;demo123&quot; für den Login.
                     </p>
                   </div>
                 </div>
