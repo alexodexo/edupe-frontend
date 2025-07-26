@@ -1,68 +1,132 @@
 // src/lib/auth.js
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { supabase, getUserRole, getHelferProfile, getJugendamtProfile } from './supabase'
 
 const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [userRole, setUserRole] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    checkAuth()
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setupUser(session.user)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          await setupUser(session.user)
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setUserRole(null)
+          setUserProfile(null)
+          setLoading(false)
+        }
+      }
+    )
+
+    return () => subscription?.unsubscribe()
   }, [])
 
-  const checkAuth = () => {
+  const setupUser = async (authUser) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      const userData = localStorage.getItem('user_data')
+      setUser(authUser)
       
-      if (token && userData) {
-        setUser(JSON.parse(userData))
+      // Determine user role
+      const role = await getUserRole(authUser)
+      setUserRole(role)
+
+      // Get user profile based on role
+      let profile = null
+      if (role === 'helper') {
+        const { data } = await supabase
+          .from('helfer')
+          .select('*')
+          .eq('email', authUser.email)
+          .single()
+        profile = data
+      } else if (role === 'jugendamt') {
+        const { data } = await supabase
+          .from('jugendamt_ansprechpartner')
+          .select('*')
+          .eq('mail', authUser.email)
+          .single()
+        profile = data
       }
+      // For admin, we use the auth user data
+      
+      setUserProfile(profile || { 
+        name: authUser.user_metadata?.name || authUser.email,
+        email: authUser.email 
+      })
+      
     } catch (error) {
-      console.error('Auth check failed:', error)
+      console.error('Error setting up user:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const login = (userData, token) => {
-    localStorage.setItem('auth_token', token)
-    localStorage.setItem('user_data', JSON.stringify(userData))
-    setUser(userData)
+  const signIn = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+    
+    if (error) throw error
+    return data
   }
 
-  const logout = () => {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_data')
-    setUser(null)
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
     router.push('/login')
   }
 
   const hasRole = (role) => {
-    return user?.role === role
+    return userRole === role
   }
 
   const hasPermission = (permission) => {
     // Define role-based permissions
     const permissions = {
       admin: ['all'],
-      helper: ['view_own_cases', 'create_services', 'view_own_services'],
-      jugendamt: ['view_own_cases', 'view_reports', 'view_invoices']
+      helper: [
+        'view_own_cases', 
+        'create_services', 
+        'view_own_services',
+        'edit_own_profile'
+      ],
+      jugendamt: [
+        'view_own_cases', 
+        'view_reports', 
+        'view_invoices',
+        'approve_services'
+      ]
     }
 
-    const userPermissions = permissions[user?.role] || []
+    const userPermissions = permissions[userRole] || []
     return userPermissions.includes('all') || userPermissions.includes(permission)
   }
 
   const value = {
     user,
+    userRole,
+    userProfile,
     loading,
-    login,
-    logout,
+    signIn,
+    signOut,
     hasRole,
     hasPermission,
     isAuthenticated: !!user
@@ -86,16 +150,16 @@ export function useAuth() {
 // Higher-order component for protected routes
 export function withAuth(WrappedComponent, allowedRoles = []) {
   return function ProtectedRoute(props) {
-    const { user, loading } = useAuth()
+    const { user, userRole, loading } = useAuth()
     const router = useRouter()
 
     useEffect(() => {
       if (!loading && !user) {
         router.push('/login')
-      } else if (user && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+      } else if (user && allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
         router.push('/unauthorized')
       }
-    }, [user, loading, router])
+    }, [user, userRole, loading, router])
 
     if (loading) {
       return <LoadingScreen />
@@ -105,7 +169,7 @@ export function withAuth(WrappedComponent, allowedRoles = []) {
       return null
     }
 
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
       return <UnauthorizedScreen />
     }
 
@@ -130,30 +194,23 @@ function LoadingScreen() {
 
 // Unauthorized Screen Component
 function UnauthorizedScreen() {
+  const router = useRouter()
+  
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <ShieldCheckIcon className="w-8 h-8 text-red-600" />
+          <span className="text-2xl">🚫</span>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Keine Berechtigung</h1>
         <p className="text-gray-600 mb-4">Sie haben keine Berechtigung für diese Seite.</p>
         <button
-          onClick={() => window.history.back()}
+          onClick={() => router.push('/')}
           className="btn-primary"
         >
-          Zurück
+          Zum Dashboard
         </button>
       </div>
     </div>
-  )
-}
-
-// Protected Layout Component
-export function ProtectedLayout({ children, allowedRoles = [] }) {
-  return (
-    <AuthProvider>
-      {withAuth(() => children, allowedRoles)()}
-    </AuthProvider>
   )
 }
