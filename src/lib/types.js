@@ -96,6 +96,13 @@ export const REPORT_STATUS = {
   SUBMITTED: 'uebermittelt'
 }
 
+// Alias für bessere deutsche Bezeichnung
+export const BERICHT_STATUS = {
+  ENTWURF: 'entwurf',
+  FINAL: 'final',
+  UEBERMITTELT: 'uebermittelt'
+}
+
 // Database field mappings - Frontend zu Datenbank
 export const DB_FIELD_MAPPINGS = {
   cases: {
@@ -605,5 +612,9 @@ export const STATUS_LABELS = {
   
   [REPORT_STATUS.DRAFT]: 'Entwurf',
   [REPORT_STATUS.FINAL]: 'Final',
-  [REPORT_STATUS.SUBMITTED]: 'Übermittelt'
+  [REPORT_STATUS.SUBMITTED]: 'Übermittelt',
+  
+  [BERICHT_STATUS.ENTWURF]: 'Entwurf',
+  [BERICHT_STATUS.FINAL]: 'Final',
+  [BERICHT_STATUS.UEBERMITTELT]: 'Übermittelt'
 }

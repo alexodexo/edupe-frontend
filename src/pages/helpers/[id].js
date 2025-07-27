@@ -8,6 +8,8 @@ import { LoadingPage } from '@/components/Loading'
 import { useAuth } from '@/lib/auth'
 import { useHelper } from '@/hooks/useData'
 import { useNotifications } from '@/lib/notifications'
+import DocumentUpload from '@/components/DocumentUpload'
+import DocumentList from '@/components/DocumentList'
 import {
   ArrowLeftIcon,
   StarIcon,
@@ -25,7 +27,8 @@ import {
   DocumentCheckIcon,
   PencilIcon,
   UserGroupIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline'
 import {
   HELPER_AVAILABILITY,
@@ -36,11 +39,12 @@ import {
 export default function HelperDetail() {
   const router = useRouter()
   const { id } = router.query
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const { helper, isLoading, error, refresh } = useHelper(id)
   const { success, error: showError } = useNotifications()
 
   const [activeTab, setActiveTab] = useState('overview')
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   const getAvailabilityColor = (availability) => {
     switch (availability) {
@@ -319,46 +323,34 @@ export default function HelperDetail() {
                 <div className="card p-6">
                   <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <DocumentCheckIcon className="w-5 h-5" />
-                    Dokumente
+                    Dokumente (Übersicht)
                     <div className="ml-auto">
                       {getComplianceIcon(helper.complianceStatus)}
                     </div>
                   </h3>
-                  <div className="space-y-3">
-                    {helper.documents?.map((doc, index) => {
-                      const isExpired = new Date(doc.validUntil) < new Date()
-                      const isExpiringSoon = new Date(doc.validUntil) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
-                      return (
-                        <div key={index} className={`p-4 rounded-lg border-2 ${
-                          isExpired ? 'border-red-200 bg-red-50' :
-                          isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
-                          'border-green-200 bg-green-50'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{doc.type}</p>
-                              <p className="text-sm text-gray-600">
-                                Gültig bis: {new Date(doc.validUntil).toLocaleDateString('de-DE')}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {doc.verified && <ShieldCheckIcon className="w-5 h-5 text-green-600" />}
-                              <DocumentCheckIcon className={`w-5 h-5 ${
-                                isExpired ? 'text-red-600' :
-                                isExpiringSoon ? 'text-yellow-600' :
-                                'text-green-600'
-                              }`} />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    }) || [
-                      <div key="no-docs" className="p-4 rounded-lg border-2 border-gray-200 bg-gray-50">
-                        <p className="text-gray-600">Keine Dokumente hinterlegt</p>
-                      </div>
-                    ]}
+                  <div className="text-sm text-gray-600 mb-3">
+                    <p>
+                      Für detaillierte Dokumentenverwaltung wechseln Sie zum 
+                      <button 
+                        onClick={() => setActiveTab('documents')}
+                        className="text-blue-600 hover:text-blue-800 font-medium ml-1"
+                      >
+                        Dokumente-Tab
+                      </button>
+                    </p>
                   </div>
+                  <DocumentList 
+                    helperId={id}
+                    userRole={user?.role || 'admin'}
+                    compactView={true}
+                    maxItems={3}
+                    onDocumentDeleted={(filePath) => {
+                      success('Dokument erfolgreich gelöscht')
+                    }}
+                    onDocumentError={(error) => {
+                      showError(error)
+                    }}
+                  />
                 </div>
               </div>
 
@@ -411,45 +403,29 @@ export default function HelperDetail() {
           {activeTab === 'documents' && (
             <div className="lg:col-span-3">
               <div className="card p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Alle Dokumente</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {helper.documents?.map((doc, index) => {
-                    const isExpired = new Date(doc.validUntil) < new Date()
-                    const isExpiringSoon = new Date(doc.validUntil) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
-                    return (
-                      <div key={index} className={`p-4 rounded-lg border-2 ${
-                        isExpired ? 'border-red-200 bg-red-50' :
-                        isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
-                        'border-green-200 bg-green-50'
-                      }`}>
-                        <div className="flex items-start justify-between mb-3">
-                          <h4 className="font-medium">{doc.type}</h4>
-                          <div className="flex items-center gap-1">
-                            {doc.verified && <ShieldCheckIcon className="w-4 h-4 text-green-600" />}
-                            <DocumentCheckIcon className={`w-4 h-4 ${
-                              isExpired ? 'text-red-600' :
-                              isExpiringSoon ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`} />
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Gültig bis: {new Date(doc.validUntil).toLocaleDateString('de-DE')}
-                        </p>
-                        <div className="flex gap-2">
-                          <button className="btn-secondary text-xs">Ansehen</button>
-                          <button className="btn-secondary text-xs">Download</button>
-                        </div>
-                      </div>
-                    )
-                  }) || [
-                    <div key="no-docs" className="lg:col-span-3 text-center py-8">
-                      <DocumentCheckIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">Keine Dokumente hinterlegt</p>
-                    </div>
-                  ]}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-semibold text-gray-900">Alle Dokumente</h3>
+                  {hasPermission('edit_helpers') && (
+                    <button
+                      onClick={() => setShowUploadModal(true)}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      <PlusIcon className="w-5 h-5" />
+                      Dokument hochladen
+                    </button>
+                  )}
                 </div>
+                
+                <DocumentList 
+                  helperId={id}
+                  userRole={user?.role || 'admin'}
+                  onDocumentDeleted={(filePath) => {
+                    success('Dokument erfolgreich gelöscht')
+                  }}
+                  onDocumentError={(error) => {
+                    showError(error)
+                  }}
+                />
               </div>
             </div>
           )}
@@ -471,6 +447,39 @@ export default function HelperDetail() {
           )}
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Dokument hochladen
+              </h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <DocumentUpload
+              helperId={id}
+              userRole={user?.role || 'admin'}
+              onUploadSuccess={(document) => {
+                success('Dokument erfolgreich hochgeladen')
+                setShowUploadModal(false)
+                // Refresh the document list
+                window.location.reload()
+              }}
+              onUploadError={(error) => {
+                showError(error)
+              }}
+            />
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

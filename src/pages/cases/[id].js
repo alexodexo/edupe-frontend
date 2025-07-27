@@ -4,11 +4,11 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import Layout from '@/components/Layout'
-import ServiceBooking from '@/components/ServiceBooking'
+
 import { LoadingPage } from '@/components/Loading'
 import { useAuth } from '@/lib/auth'
-import { useCase, useHelpers, useServices, useCreateService } from '@/hooks/useData'
-import { useNotifications } from '@/lib/notifications'
+import { useCase, useHelpers, useServices } from '@/hooks/useData'
+
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -39,14 +39,11 @@ export default function CaseDetail() {
   const router = useRouter()
   const { id } = router.query
   const { hasPermission } = useAuth()
-  const { case: caseData, isLoading, error, refresh } = useCase(id)
+  const { case: caseData, isLoading, error } = useCase(id)
   const { helpers } = useHelpers()
   const { services } = useServices()
-  const createService = useCreateService()
-  const { success, error: showError } = useNotifications()
 
   const [activeTab, setActiveTab] = useState('overview')
-  const [showServiceBooking, setShowServiceBooking] = useState(false)
 
   // Get services for this case
   const caseServices = useMemo(() => {
@@ -69,16 +66,7 @@ export default function CaseDetail() {
     )
   }, [caseData, helpers])
 
-  const handleServiceSave = async (serviceData) => {
-    try {
-      await createService(serviceData)
-      success('Leistung wurde erfolgreich gebucht')
-      setShowServiceBooking(false)
-      refresh()
-    } catch (error) {
-      showError('Fehler beim Buchen der Leistung')
-    }
-  }
+
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -205,13 +193,13 @@ export default function CaseDetail() {
               </div>
               <div className="flex items-center gap-2">
                 {assignedHelper && (
-                  <button
-                    onClick={() => setShowServiceBooking(true)}
+                  <Link
+                    href={`/cases/${caseData.id}/service/new`}
                     className="btn bg-white/10 hover:bg-white/20 text-white border-white/20"
                   >
                     <ClockIcon className="w-5 h-5" />
                     Leistung buchen
-                  </button>
+                  </Link>
                 )}
                 {hasPermission('edit_cases') && (
                   <Link 
@@ -404,13 +392,13 @@ export default function CaseDetail() {
                   <h3 className="font-semibold text-gray-900 mb-4">Aktionen</h3>
                   <div className="space-y-3">
                     {assignedHelper && (
-                      <button
-                        onClick={() => setShowServiceBooking(true)}
+                      <Link
+                        href={`/cases/${caseData.id}/service/new`}
                         className="btn-primary w-full justify-center"
                       >
                         <ClockIcon className="w-5 h-5" />
                         Leistung buchen
-                      </button>
+                      </Link>
                     )}
                     <Link href={`/cases/${caseData.id}/edit`} className="btn-secondary w-full justify-center">
                       <PencilIcon className="w-5 h-5" />
@@ -499,21 +487,7 @@ export default function CaseDetail() {
         </div>
       </div>
 
-      {/* Service Booking Modal */}
-      {showServiceBooking && assignedHelper && (
-        <>
-          <div className="modal-backdrop" onClick={() => setShowServiceBooking(false)} />
-          <div className="fixed inset-4 lg:inset-8 z-60 overflow-auto">
-            <ServiceBooking
-              caseData={caseData}
-              helper={assignedHelper}
-              lastService={lastService}
-              onSave={handleServiceSave}
-              onCancel={() => setShowServiceBooking(false)}
-            />
-          </div>
-        </>
-      )}
+
     </Layout>
   )
 }
