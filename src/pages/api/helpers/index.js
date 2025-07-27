@@ -41,12 +41,12 @@ async function getHelpers(req, res) {
           freigegeben_flag,
           erstellt_am
         ),
-        urlaube!left(
-          urlaub_id,
-          von_datum,
-          bis_datum,
-          freigegeben
-        )
+        urlaube!urlaube_helfer_id_fkey!left(
+  urlaub_id,
+  von_datum,
+  bis_datum,
+  freigegeben
+)
       `)
 
     // If helper role, only return own profile
@@ -62,7 +62,7 @@ async function getHelpers(req, res) {
 
     // Transform data to match frontend expectations
     const transformedHelpers = helpers.map(helper => {
-      const activeCases = helper.helfer_fall?.filter(hf => 
+      const activeCases = helper.helfer_fall?.filter(hf =>
         hf.aktiv && hf.faelle?.status === 'in_bearbeitung'
       ) || []
 
@@ -71,7 +71,7 @@ async function getHelpers(req, res) {
       const thisMonthServices = services.filter(service => {
         const serviceDate = new Date(service.startzeit)
         return serviceDate.getMonth() === thisMonth.getMonth() &&
-               serviceDate.getFullYear() === thisMonth.getFullYear()
+          serviceDate.getFullYear() === thisMonth.getFullYear()
       })
 
       const thisMonthHours = thisMonthServices.reduce((sum, service) => {
@@ -91,10 +91,10 @@ async function getHelpers(req, res) {
       // Determine availability based on urlaube
       let availability = 'available'
       const today = new Date().toISOString().split('T')[0]
-      const currentVacation = helper.urlaube?.find(urlaub => 
+      const currentVacation = helper.urlaube?.find(urlaub =>
         urlaub.von_datum <= today && urlaub.bis_datum >= today && urlaub.freigegeben
       )
-      
+
       if (currentVacation) {
         availability = 'unavailable'
       } else if (activeCases.length >= 3) { // Assuming max 3 cases per helper
@@ -114,8 +114,8 @@ async function getHelpers(req, res) {
           latitude: null, // Could be geocoded
           longitude: null
         },
-        qualifications: helper.zusaetzliche_qualifikationen ? 
-          helper.zusaetzliche_qualifikationen.split(',').map(q => q.trim()) : 
+        qualifications: helper.zusaetzliche_qualifikationen ?
+          helper.zusaetzliche_qualifikationen.split(',').map(q => q.trim()) :
           [],
         availability,
         rating: 4.8, // This could be calculated from feedback
@@ -130,10 +130,10 @@ async function getHelpers(req, res) {
           bic: 'COBADEFFXXX' // Could be stored in database
         },
         documents: [
-          { 
-            type: 'Führungszeugnis', 
-            validUntil: '2024-12-31', 
-            verified: !!helper.bild_bescheinigung 
+          {
+            type: 'Führungszeugnis',
+            validUntil: '2024-12-31',
+            verified: !!helper.bild_bescheinigung
           }
         ],
         lastActivity: new Date(),
@@ -180,7 +180,7 @@ async function createHelper(req, res) {
         stadt,
         geburtsdatum,
         geschlecht,
-        zusaetzliche_qualifikationen: Array.isArray(qualifikationen) ? 
+        zusaetzliche_qualifikationen: Array.isArray(qualifikationen) ?
           qualifikationen.join(', ') : qualifikationen,
         sprachen,
         iban,
