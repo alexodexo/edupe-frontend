@@ -6,8 +6,8 @@ import { LoadingPage, LoadingTable } from '@/components/Loading'
 import { useAuth } from '@/lib/auth'
 import { useHelpers, useCreateHelper } from '@/hooks/useData'
 import { useNotifications } from '@/lib/notifications'
-import { 
-  PlusIcon, 
+import {
+  PlusIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   EnvelopeIcon,
@@ -26,7 +26,7 @@ import {
   IdentificationIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
-import { 
+import {
   HELPER_AVAILABILITY,
   QUALIFICATION_TYPES,
   formatCurrency,
@@ -38,7 +38,7 @@ export default function Helpers() {
   const { helpers, isLoading, error, refresh } = useHelpers()
   const createHelper = useCreateHelper()
   const { success, error: showError } = useNotifications()
-  
+
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedHelper, setSelectedHelper] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -51,17 +51,17 @@ export default function Helpers() {
   // Filter helpers
   const filteredHelpers = useMemo(() => {
     if (!helpers) return []
-    
+
     return helpers.filter(helper => {
-      const matchesSearch = 
+      const matchesSearch =
         helper.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         helper.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         helper.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         helper.address.city.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesAvailability = selectedFilters.availability === 'all' || 
+      const matchesAvailability = selectedFilters.availability === 'all' ||
         helper.availability === selectedFilters.availability
-        
+
       const matchesQualification = selectedFilters.qualification === 'all' ||
         helper.qualifications.includes(selectedFilters.qualification)
 
@@ -154,7 +154,7 @@ export default function Helpers() {
             <p className="text-gray-600 mt-1">Verwalten Sie Ihre Helfer und deren Verfügbarkeit</p>
           </div>
           {hasPermission('create_helpers') && (
-            <button 
+            <button
               onClick={() => setShowAddModal(true)}
               className="btn-primary"
             >
@@ -177,11 +177,11 @@ export default function Helpers() {
                 className="input pl-10"
               />
             </div>
-            
+
             <div className="flex flex-wrap gap-3">
               <select
                 value={selectedFilters.availability}
-                onChange={(e) => setSelectedFilters({...selectedFilters, availability: e.target.value})}
+                onChange={(e) => setSelectedFilters({ ...selectedFilters, availability: e.target.value })}
                 className="input w-auto min-w-[150px]"
               >
                 <option value="all">Alle Verfügbarkeiten</option>
@@ -192,7 +192,7 @@ export default function Helpers() {
 
               <select
                 value={selectedFilters.qualification}
-                onChange={(e) => setSelectedFilters({...selectedFilters, qualification: e.target.value})}
+                onChange={(e) => setSelectedFilters({ ...selectedFilters, qualification: e.target.value })}
                 className="input w-auto min-w-[150px]"
               >
                 <option value="all">Alle Qualifikationen</option>
@@ -212,8 +212,8 @@ export default function Helpers() {
         {/* Helpers Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredHelpers.map((helper) => (
-            <div 
-              key={helper.id} 
+            <div
+              key={helper.id}
               className="card card-hover cursor-pointer relative"
               onClick={() => setSelectedHelper(helper)}
             >
@@ -241,8 +241,8 @@ export default function Helpers() {
                     </div>
                     <span className={`badge ${getAvailabilityColor(helper.availability)} text-xs`}>
                       {helper.availability === HELPER_AVAILABILITY.AVAILABLE ? 'Verfügbar' :
-                       helper.availability === HELPER_AVAILABILITY.PARTIALLY_AVAILABLE ? 'Teilweise verfügbar' :
-                       'Nicht verfügbar'}
+                        helper.availability === HELPER_AVAILABILITY.PARTIALLY_AVAILABLE ? 'Teilweise verfügbar' :
+                          'Nicht verfügbar'}
                     </span>
                   </div>
                 </div>
@@ -291,12 +291,20 @@ export default function Helpers() {
                   </div>
                 </div>
 
-                {/* Last Activity */}
+
+
+
                 <div className="mt-3 text-center">
                   <p className="text-xs text-gray-500">
-                    Letzte Aktivität: {helper.lastActivity.toLocaleDateString('de-DE')}
+                    Letzte Aktivität: {helper.lastActivity ?
+                      new Date(helper.lastActivity).toLocaleDateString('de-DE') :
+                      'Unbekannt'
+                    }
                   </p>
                 </div>
+
+
+
               </div>
             </div>
           ))}
@@ -316,15 +324,15 @@ export default function Helpers() {
 
       {/* Helper Detail Modal */}
       {selectedHelper && (
-        <HelperDetailModal 
-          helper={selectedHelper} 
+        <HelperDetailModal
+          helper={selectedHelper}
           onClose={() => setSelectedHelper(null)}
         />
       )}
 
       {/* Add Helper Modal */}
       {showAddModal && (
-        <AddHelperModal 
+        <AddHelperModal
           onClose={() => setShowAddModal(false)}
           onSave={handleCreateHelper}
         />
@@ -339,7 +347,7 @@ function HelperDetailModal({ helper, onClose }) {
     <>
       <div className="modal-backdrop" onClick={onClose} />
       <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
-        
+
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -368,7 +376,7 @@ function HelperDetailModal({ helper, onClose }) {
         {/* Modal Content */}
         <div className="flex-1 overflow-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             {/* Personal Info */}
             <div className="space-y-6">
               <div className="card p-4">
@@ -461,13 +469,12 @@ function HelperDetailModal({ helper, onClose }) {
                   {helper.documents?.map((doc, index) => {
                     const isExpired = new Date(doc.validUntil) < new Date()
                     const isExpiringSoon = new Date(doc.validUntil) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                    
+
                     return (
-                      <div key={index} className={`p-3 rounded-lg border ${
-                        isExpired ? 'border-red-200 bg-red-50' :
-                        isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
-                        'border-green-200 bg-green-50'
-                      }`}>
+                      <div key={index} className={`p-3 rounded-lg border ${isExpired ? 'border-red-200 bg-red-50' :
+                          isExpiringSoon ? 'border-yellow-200 bg-yellow-50' :
+                            'border-green-200 bg-green-50'
+                        }`}>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-sm">{doc.type}</p>
@@ -477,20 +484,19 @@ function HelperDetailModal({ helper, onClose }) {
                           </div>
                           <div className="flex items-center gap-1">
                             {doc.verified && <ShieldCheckIcon className="w-4 h-4 text-green-600" />}
-                            <DocumentCheckIcon className={`w-4 h-4 ${
-                              isExpired ? 'text-red-600' :
-                              isExpiringSoon ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`} />
+                            <DocumentCheckIcon className={`w-4 h-4 ${isExpired ? 'text-red-600' :
+                                isExpiringSoon ? 'text-yellow-600' :
+                                  'text-green-600'
+                              }`} />
                           </div>
                         </div>
                       </div>
                     )
                   }) || [
-                    <div key="no-docs" className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                      <p className="text-sm text-gray-600">Keine Dokumente hinterlegt</p>
-                    </div>
-                  ]}
+                      <div key="no-docs" className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+                        <p className="text-sm text-gray-600">Keine Dokumente hinterlegt</p>
+                      </div>
+                    ]}
                 </div>
               </div>
             </div>
@@ -567,13 +573,13 @@ function AddHelperModal({ onClose, onSave }) {
     iban: '',
     taxNumber: ''
   })
-  
+
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    
+
     try {
       await onSave(formData)
     } catch (error) {
@@ -587,7 +593,7 @@ function AddHelperModal({ onClose, onSave }) {
     <>
       <div className="modal-backdrop" onClick={onClose} />
       <div className="fixed inset-4 lg:inset-8 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col max-w-2xl mx-auto">
-        
+
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -613,7 +619,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="text"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   className="input"
                   required
                 />
@@ -625,7 +631,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="text"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   className="input"
                   required
                 />
@@ -641,7 +647,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="input"
                   required
                 />
@@ -653,7 +659,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="input"
                 />
               </div>
@@ -667,7 +673,7 @@ function AddHelperModal({ onClose, onSave }) {
               <input
                 type="text"
                 value={formData.street}
-                onChange={(e) => setFormData({...formData, street: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                 className="input"
               />
             </div>
@@ -680,7 +686,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="text"
                   value={formData.zipCode}
-                  onChange={(e) => setFormData({...formData, zipCode: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
                   className="input"
                 />
               </div>
@@ -691,7 +697,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="text"
                   value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="input"
                 />
               </div>
@@ -706,7 +712,7 @@ function AddHelperModal({ onClose, onSave }) {
                 <input
                   type="date"
                   value={formData.birthDate}
-                  onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                   className="input"
                 />
               </div>
@@ -716,7 +722,7 @@ function AddHelperModal({ onClose, onSave }) {
                 </label>
                 <select
                   value={formData.gender}
-                  onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                   className="input"
                 >
                   <option value="">Bitte wählen</option>
@@ -732,8 +738,8 @@ function AddHelperModal({ onClose, onSave }) {
               <button type="button" onClick={onClose} className="btn-secondary flex-1">
                 Abbrechen
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
                 className="btn-primary flex-1"
               >

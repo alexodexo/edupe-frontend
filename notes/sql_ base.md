@@ -149,3 +149,14 @@ CREATE TABLE berichte (
     aktualisiert_am         TIMESTAMP,
     aktualisiert_von        UUID
 );
+
+
+-- Foreign Key Constraint für berichte.erstellt_von hinzufügen
+ALTER TABLE berichte 
+ADD CONSTRAINT berichte_erstellt_von_fkey 
+FOREIGN KEY (erstellt_von) REFERENCES helfer(helfer_id);
+
+-- Auch für aktualisiert_von falls gewünscht
+ALTER TABLE berichte 
+ADD CONSTRAINT berichte_aktualisiert_von_fkey 
+FOREIGN KEY (aktualisiert_von) REFERENCES helfer(helfer_id);
