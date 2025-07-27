@@ -102,6 +102,9 @@ export default function Register() {
         lastName: '',
         role: 'helper'
       })
+
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       console.error('Registration error:', error)
       setError(error.message || 'Registrierung fehlgeschlagen')
@@ -162,12 +165,22 @@ export default function Register() {
 
               {/* Success Message */}
               {success && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-600">{success}</p>
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-green-600 font-medium">Registrierung erfolgreich!</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Bitte bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden. 
+                        Überprüfen Sie auch Ihren Spam-Ordner.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <form className="space-y-6" onSubmit={handleSubmit}>
+              {!success && (
+                <form className="space-y-6" onSubmit={handleSubmit}>
                 {/* Name Fields */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -367,16 +380,62 @@ export default function Register() {
                   </button>
                 </div>
               </form>
+              )}
 
-              {/* Login Link */}
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">
-                  Bereits ein Konto?{' '}
-                  <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                    Hier anmelden
-                  </Link>
-                </p>
-              </div>
+              {/* Success State - Show when registration is successful */}
+              {success && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckIcon className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Registrierung erfolgreich!
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+                    Wir haben Ihnen eine E-Mail zur Bestätigung Ihrer E-Mail-Adresse gesendet. 
+                    Bitte überprüfen Sie Ihren Posteingang und klicken Sie auf den Bestätigungslink.
+                  </p>
+                  <div className="space-y-3">
+                    <Link
+                      href="/login"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Zur Anmeldung
+                    </Link>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSuccess('')
+                          setFormData({
+                            email: '',
+                            password: '',
+                            confirmPassword: '',
+                            firstName: '',
+                            lastName: '',
+                            role: 'helper'
+                          })
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Erneut registrieren
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Login Link - Only show when not in success state */}
+              {!success && (
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-gray-600">
+                    Bereits ein Konto?{' '}
+                    <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                      Hier anmelden
+                    </Link>
+                  </p>
+                </div>
+              )}
 
               {/* Back to Login */}
               <div className="mt-4 text-center">
