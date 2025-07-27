@@ -386,7 +386,7 @@ export default function GlobalSearch() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, results, quickActions, recentSearches, selectedIndex, query, categories])
 
-  const handleSelect = (index) => {
+  const handleSelect = useCallback((index) => {
     const showingQuickActions = !query && quickActions.length > 0
     const showingRecent = !query && recentSearches.length > 0
     
@@ -416,7 +416,7 @@ export default function GlobalSearch() {
       setSelectedIndex(0)
       router.push(item.href)
     }
-  }
+  }, [query, quickActions, recentSearches, results, activeCategory, totalCount, router])
 
   const handleOpen = () => {
     setIsOpen(true)
@@ -576,7 +576,7 @@ export default function GlobalSearch() {
                             <div className="flex-1 text-left">
                               <div className="font-medium">{search.result.title}</div>
                               <div className="text-sm text-gray-500">
-                                "{search.query}" • {new Date(search.timestamp).toLocaleDateString()}
+                                &quot;{search.query}&quot; • {new Date(search.timestamp).toLocaleDateString()}
                               </div>
                             </div>
                             <ChevronRightIcon className="w-4 h-4 text-gray-400" />
@@ -598,7 +598,7 @@ export default function GlobalSearch() {
                   {query && !loading && results.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                       <MagnifyingGlassIcon className="w-12 h-12 mb-4 text-gray-300" />
-                      <p className="text-lg font-medium">Keine Ergebnisse für "{query}"</p>
+                      <p className="text-lg font-medium">Keine Ergebnisse für &quot;{query}&quot;</p>
                       <p className="text-sm">Versuche andere Suchbegriffe oder wähle eine andere Kategorie</p>
                     </div>
                   )}
