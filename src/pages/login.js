@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 import {
   EyeIcon,
@@ -15,7 +16,7 @@ import {
 
 export default function Login() {
   const router = useRouter()
-  const { signIn, user, loading } = useAuth()
+  const { signIn, resetPassword, user, loading } = useAuth()
 
   const [formData, setFormData] = useState({
     email: '',
@@ -26,6 +27,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   // Redirect if already logged in
   useEffect(() => {
@@ -33,31 +35,6 @@ export default function Login() {
       router.push('/')
     }
   }, [user, loading, router])
-
-  // Demo users for different roles (for testing)
-  const demoUsers = [
-    {
-      email: 'admin@edupe.de',
-      label: 'Administrator Demo',
-      description: 'Vollzugriff auf alle Funktionen',
-      icon: ShieldCheckIcon,
-      color: 'blue'
-    },
-    {
-      email: 'helper@edupe.de',
-      label: 'Helfer Demo',
-      description: 'Zugriff auf eigene Fälle und Services',
-      icon: UserIcon,
-      color: 'green'
-    },
-    {
-      email: 'jugendamt@frankfurt.de',
-      label: 'Jugendamt Demo',
-      description: 'Zugriff auf eigene Fälle und Berichte',
-      icon: BuildingOfficeIcon,
-      color: 'purple'
-    }
-  ]
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -81,12 +58,24 @@ export default function Login() {
     }
   }
 
-  const handleDemoLogin = (demoEmail) => {
-    setFormData({
-      ...formData,
-      email: demoEmail,
-      password: 'demo123' // Demo password
-    })
+  const handlePasswordReset = async () => {
+    if (!formData.email) {
+      setError('Bitte geben Sie Ihre E-Mail-Adresse ein')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      await resetPassword(formData.email)
+      setError('')
+      setSuccess('E-Mail zum Zurücksetzen des Passworts wurde gesendet. Bitte überprüfen Sie Ihren Posteingang.')
+    } catch (error) {
+      console.error('Password reset error:', error)
+      setError(error.message || 'Fehler beim Senden der E-Mail')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Show loading if auth is still initializing
@@ -139,36 +128,12 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Demo Login Options */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Demo-Anmeldung:
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {demoUsers.map((demo) => (
-                    <button
-                      key={demo.email}
-                      type="button"
-                      onClick={() => handleDemoLogin(demo.email)}
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${formData.email === demo.email
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <demo.icon className={`w-5 h-5 ${formData.email === demo.email
-                            ? 'text-blue-600'
-                            : 'text-gray-400'
-                          }`} />
-                        <div>
-                          <p className="font-medium text-gray-900">{demo.label}</p>
-                          <p className="text-xs text-gray-600">{demo.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+              {/* Success Message */}
+              {success && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-600">{success}</p>
                 </div>
-              </div>
+              )}
 
               <form className="space-y-6" onSubmit={handleSubmit}>
                 {/* Email Field */}
@@ -243,9 +208,14 @@ export default function Login() {
                   </div>
 
                   <div className="text-sm">
-                    <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+                    <button
+                      type="button"
+                      onClick={handlePasswordReset}
+                      disabled={isLoading}
+                      className="font-medium text-blue-600 hover:text-blue-500 disabled:opacity-50"
+                    >
                       Passwort vergessen?
-                    </a>
+                    </button>
                   </div>
                 </div>
 
@@ -271,17 +241,14 @@ export default function Login() {
                 </div>
               </form>
 
-              {/* Demo Info */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-                <div className="flex items-start gap-2">
-                  <ShieldCheckIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-sm font-medium text-blue-900">Demo-Zugang</h3>
-                    <p className="text-xs text-blue-800 mt-1">
-                      Klicken Sie auf einen Demo-Benutzer oben und verwenden Sie das Passwort &quot;demo123&quot; für den Login.
-                    </p>
-                  </div>
-                </div>
+              {/* Registration Link */}
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Noch kein Konto?{' '}
+                  <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                    Hier registrieren
+                  </Link>
+                </p>
               </div>
             </div>
           </div>

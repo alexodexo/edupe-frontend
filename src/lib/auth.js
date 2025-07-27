@@ -32,6 +32,8 @@ export function AuthProvider({ children }) {
           setUserRole(null)
           setUserProfile(null)
           setLoading(false)
+        } else if (event === 'USER_UPDATED' && session?.user) {
+          await setupUser(session.user)
         }
       }
     )
@@ -88,10 +90,40 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  const signUp = async (email, password, userData = {}) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: userData,
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
+    })
+    
+    if (error) throw error
+    return data
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     router.push('/login')
+  }
+
+  const resetPassword = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`
+    })
+    
+    if (error) throw error
+  }
+
+  const updatePassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+    
+    if (error) throw error
   }
 
   const hasRole = (role) => {
@@ -126,7 +158,10 @@ export function AuthProvider({ children }) {
     userProfile,
     loading,
     signIn,
+    signUp,
     signOut,
+    resetPassword,
+    updatePassword,
     hasRole,
     hasPermission,
     isAuthenticated: !!user
