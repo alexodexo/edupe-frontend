@@ -7,6 +7,7 @@ import GlobalSearch from './GlobalSearch'
 import {
   HomeIcon,
   UsersIcon,
+  UserGroupIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   CurrencyEuroIcon,
@@ -37,6 +38,7 @@ const getNavigationItems = (userRole, hasPermission) => {
   const adminItems = [
     { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['admin', 'helper', 'jugendamt'] },
     { name: 'Helfer', href: '/helpers', icon: UsersIcon, roles: ['admin'] },
+    { name: 'Ansprechpartner', href: '/ansprechpartner', icon: UserGroupIcon, roles: ['admin'] },
     { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] }

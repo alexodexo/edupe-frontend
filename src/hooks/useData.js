@@ -144,6 +144,118 @@ export function useHelpers() {
   }
 }
 
+// Ansprechpartner Hooks
+export function useAnsprechpartner() {
+  const { userProfile, userRole } = useAuth()
+  const userId = userRole === 'jugendamt' ? userProfile?.ansprechpartner_id : null
+
+  const { data, error, mutate } = useSWR(
+    ['/api/ansprechpartner', userId, userRole],
+    ([url, userId, userRole]) => fetcher(url, userId, userRole),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true
+    }
+  )
+
+  const stats = useMemo(() => {
+    if (!data || !Array.isArray(data)) return {
+      total: 0,
+      withActiveCases: 0,
+      withoutCases: 0,
+      totalAssignedCases: 0
+    }
+
+    const totalAssignedCases = data.reduce((sum, ap) => sum + ap.totalCases, 0)
+
+    return {
+      total: data.length,
+      withActiveCases: data.filter(ap => ap.activeCases > 0).length,
+      withoutCases: data.filter(ap => ap.totalCases === 0).length,
+      totalAssignedCases
+    }
+  }, [data])
+
+  return {
+    ansprechpartner: data || [],
+    stats,
+    isLoading: !error && !data,
+    error,
+    refresh: mutate
+  }
+}
+
+export function useAnsprechpartnerDetail(id) {
+  const { data, error, mutate } = useSWR(
+    id ? `/api/ansprechpartner/${id}` : null,
+    simpleFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true
+    }
+  )
+
+  return {
+    ansprechpartner: data,
+    isLoading: !error && !data && id,
+    error,
+    refresh: mutate
+  }
+}
+
+export function useCreateAnsprechpartner() {
+  return async (ansprechpartnerData) => {
+    const response = await fetch('/api/ansprechpartner', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(ansprechpartnerData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Fehler beim Erstellen des Ansprechpartners')
+    }
+
+    return response.json()
+  }
+}
+
+export function useUpdateAnsprechpartner() {
+  return async (id, ansprechpartnerData) => {
+    const response = await fetch(`/api/ansprechpartner/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(ansprechpartnerData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Fehler beim Aktualisieren des Ansprechpartners')
+    }
+
+    return response.json()
+  }
+}
+
+export function useDeleteAnsprechpartner() {
+  return async (id) => {
+    const response = await fetch(`/api/ansprechpartner/${id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Fehler beim Löschen des Ansprechpartners')
+    }
+
+    return response.json()
+  }
+}
+
 // NEW: Enhanced helper hook that fetches single helper directly from API
 export function useHelper(helperId) {
   const { data: helper, error, mutate } = useSWR(

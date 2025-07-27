@@ -82,7 +82,13 @@ export const PERMISSIONS = {
     'manage_users',
     'manage_system',
     'view_all_data',
-    'create_reports'
+    'create_reports',
+    'view_helpers',
+    'create_helpers',
+    'edit_helpers',
+    'view_ansprechpartner',
+    'create_ansprechpartner',
+    'edit_ansprechpartner'
   ],
   helper: [
     'view_own_cases',

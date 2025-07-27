@@ -151,7 +151,13 @@ export function AuthProvider({ children }) {
         'view_own_cases', 
         'create_services', 
         'view_own_services',
-        'edit_own_profile'
+        'edit_own_profile',
+        'view_helpers',
+        'create_helpers',
+        'edit_helpers',
+        'view_ansprechpartner',
+        'create_ansprechpartner',
+        'edit_ansprechpartner'
       ],
       jugendamt: [
         'view_own_cases', 
