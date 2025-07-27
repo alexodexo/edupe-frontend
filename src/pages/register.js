@@ -25,7 +25,33 @@ export default function Register() {
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    role: 'helper'
+    role: 'helper',
+    // Helfer-spezifische Felder
+    strasse: '',
+    plz: '',
+    stadt: '',
+    geburtsdatum: '',
+    geburtsort: '',
+    geburtsland: '',
+    geschlecht: '',
+    staatsangehoerigkeit: '',
+    telefon_nummer: '',
+    alternative_nummer: '',
+    festnetznummer: '',
+    hoechster_abschluss: '',
+    zusaetzliche_qualifikationen: '',
+    sprachen: '',
+    religion: '',
+    besonderheiten: '',
+    faehigkeiten: '',
+    iban: '',
+    steuernummer: '',
+    bild_bescheinigung: '',
+    steuer_id: '',
+    andere_auftraggeber: false,
+    // Jugendamt-spezifische Felder
+    jugendamt: '',
+    telefon: ''
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -68,8 +94,21 @@ export default function Register() {
 
     // Validation
     if (!formData.email || !formData.password || !formData.confirmPassword || !formData.firstName || !formData.lastName) {
-      setError('Bitte füllen Sie alle Felder aus')
+      setError('Bitte füllen Sie alle Pflichtfelder aus')
       return
+    }
+
+    // Role-specific validation
+    if (formData.role === 'helper') {
+      if (!formData.strasse || !formData.plz || !formData.stadt || !formData.telefon_nummer) {
+        setError('Bitte füllen Sie alle Pflichtfelder für Helfer aus')
+        return
+      }
+    } else if (formData.role === 'jugendamt') {
+      if (!formData.jugendamt || !formData.telefon) {
+        setError('Bitte füllen Sie alle Pflichtfelder für Jugendamt aus')
+        return
+      }
     }
 
     if (!passwordValidation.isValid) {
@@ -85,11 +124,20 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      await signUp(formData.email, formData.password, {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        role: formData.role
+      // Verwende die API-Route für die Registrierung
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
       })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Registrierung fehlgeschlagen')
+      }
       
       setSuccess('Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden.')
       
@@ -100,7 +148,31 @@ export default function Register() {
         confirmPassword: '',
         firstName: '',
         lastName: '',
-        role: 'helper'
+        role: 'helper',
+        strasse: '',
+        plz: '',
+        stadt: '',
+        geburtsdatum: '',
+        geburtsort: '',
+        geburtsland: '',
+        geschlecht: '',
+        staatsangehoerigkeit: '',
+        telefon_nummer: '',
+        alternative_nummer: '',
+        festnetznummer: '',
+        hoechster_abschluss: '',
+        zusaetzliche_qualifikationen: '',
+        sprachen: '',
+        religion: '',
+        besonderheiten: '',
+        faehigkeiten: '',
+        iban: '',
+        steuernummer: '',
+        bild_bescheinigung: '',
+        steuer_id: '',
+        andere_auftraggeber: false,
+        jugendamt: '',
+        telefon: ''
       })
 
       // Scroll to top to show success message
@@ -251,7 +323,7 @@ export default function Register() {
                 {/* Role Selection */}
                 <div>
                   <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                    Rolle
+                    Rolle *
                   </label>
                   <select
                     id="role"
@@ -265,6 +337,300 @@ export default function Register() {
                     <option value="jugendamt">Jugendamt</option>
                   </select>
                 </div>
+
+                {/* Helfer-spezifische Felder */}
+                {formData.role === 'helper' && (
+                  <>
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Helfer-Informationen</h3>
+                      
+                      {/* Adresse */}
+                      <div className="grid grid-cols-1 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="strasse" className="block text-sm font-medium text-gray-700">
+                            Straße *
+                          </label>
+                          <input
+                            id="strasse"
+                            name="strasse"
+                            type="text"
+                            value={formData.strasse}
+                            onChange={(e) => setFormData({ ...formData, strasse: e.target.value })}
+                            className="input"
+                            placeholder="Musterstraße 123"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="plz" className="block text-sm font-medium text-gray-700">
+                              PLZ *
+                            </label>
+                            <input
+                              id="plz"
+                              name="plz"
+                              type="text"
+                              value={formData.plz}
+                              onChange={(e) => setFormData({ ...formData, plz: e.target.value })}
+                              className="input"
+                              placeholder="12345"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="stadt" className="block text-sm font-medium text-gray-700">
+                              Stadt *
+                            </label>
+                            <input
+                              id="stadt"
+                              name="stadt"
+                              type="text"
+                              value={formData.stadt}
+                              onChange={(e) => setFormData({ ...formData, stadt: e.target.value })}
+                              className="input"
+                              placeholder="Musterstadt"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Persönliche Daten */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="geburtsdatum" className="block text-sm font-medium text-gray-700">
+                            Geburtsdatum
+                          </label>
+                          <input
+                            id="geburtsdatum"
+                            name="geburtsdatum"
+                            type="date"
+                            value={formData.geburtsdatum}
+                            onChange={(e) => setFormData({ ...formData, geburtsdatum: e.target.value })}
+                            className="input"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="geschlecht" className="block text-sm font-medium text-gray-700">
+                            Geschlecht
+                          </label>
+                          <select
+                            id="geschlecht"
+                            name="geschlecht"
+                            value={formData.geschlecht}
+                            onChange={(e) => setFormData({ ...formData, geschlecht: e.target.value })}
+                            className="input"
+                          >
+                            <option value="">Bitte wählen</option>
+                            <option value="maennlich">Männlich</option>
+                            <option value="weiblich">Weiblich</option>
+                            <option value="divers">Divers</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Kontaktdaten */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="telefon_nummer" className="block text-sm font-medium text-gray-700">
+                            Telefonnummer *
+                          </label>
+                          <input
+                            id="telefon_nummer"
+                            name="telefon_nummer"
+                            type="tel"
+                            value={formData.telefon_nummer}
+                            onChange={(e) => setFormData({ ...formData, telefon_nummer: e.target.value })}
+                            className="input"
+                            placeholder="+49 123 456789"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="alternative_nummer" className="block text-sm font-medium text-gray-700">
+                            Alternative Nummer
+                          </label>
+                          <input
+                            id="alternative_nummer"
+                            name="alternative_nummer"
+                            type="tel"
+                            value={formData.alternative_nummer}
+                            onChange={(e) => setFormData({ ...formData, alternative_nummer: e.target.value })}
+                            className="input"
+                            placeholder="+49 123 456789"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Qualifikationen */}
+                      <div className="grid grid-cols-1 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="hoechster_abschluss" className="block text-sm font-medium text-gray-700">
+                            Höchster Abschluss
+                          </label>
+                          <textarea
+                            id="hoechster_abschluss"
+                            name="hoechster_abschluss"
+                            value={formData.hoechster_abschluss}
+                            onChange={(e) => setFormData({ ...formData, hoechster_abschluss: e.target.value })}
+                            className="input"
+                            rows="2"
+                            placeholder="z.B. Abitur, Ausbildung, Studium..."
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="zusaetzliche_qualifikationen" className="block text-sm font-medium text-gray-700">
+                            Zusätzliche Qualifikationen
+                          </label>
+                          <textarea
+                            id="zusaetzliche_qualifikationen"
+                            name="zusaetzliche_qualifikationen"
+                            value={formData.zusaetzliche_qualifikationen}
+                            onChange={(e) => setFormData({ ...formData, zusaetzliche_qualifikationen: e.target.value })}
+                            className="input"
+                            rows="2"
+                            placeholder="Weiterbildungen, Zertifikate, etc."
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="sprachen" className="block text-sm font-medium text-gray-700">
+                            Sprachen
+                          </label>
+                          <textarea
+                            id="sprachen"
+                            name="sprachen"
+                            value={formData.sprachen}
+                            onChange={(e) => setFormData({ ...formData, sprachen: e.target.value })}
+                            className="input"
+                            rows="2"
+                            placeholder="Deutsch (Muttersprache), Englisch (fließend)..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Bankdaten */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="iban" className="block text-sm font-medium text-gray-700">
+                            IBAN
+                          </label>
+                          <input
+                            id="iban"
+                            name="iban"
+                            type="text"
+                            value={formData.iban}
+                            onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                            className="input"
+                            placeholder="DE89 3704 0044 0532 0130 00"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="steuernummer" className="block text-sm font-medium text-gray-700">
+                            Steuernummer
+                          </label>
+                          <input
+                            id="steuernummer"
+                            name="steuernummer"
+                            type="text"
+                            value={formData.steuernummer}
+                            onChange={(e) => setFormData({ ...formData, steuernummer: e.target.value })}
+                            className="input"
+                            placeholder="123/456/78901"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sonstiges */}
+                      <div className="grid grid-cols-1 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="besonderheiten" className="block text-sm font-medium text-gray-700">
+                            Besonderheiten
+                          </label>
+                          <textarea
+                            id="besonderheiten"
+                            name="besonderheiten"
+                            value={formData.besonderheiten}
+                            onChange={(e) => setFormData({ ...formData, besonderheiten: e.target.value })}
+                            className="input"
+                            rows="2"
+                            placeholder="Besondere Fähigkeiten, Erfahrungen, etc."
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="faehigkeiten" className="block text-sm font-medium text-gray-700">
+                            Fähigkeiten
+                          </label>
+                          <textarea
+                            id="faehigkeiten"
+                            name="faehigkeiten"
+                            value={formData.faehigkeiten}
+                            onChange={(e) => setFormData({ ...formData, faehigkeiten: e.target.value })}
+                            className="input"
+                            rows="2"
+                            placeholder="Spezielle Fähigkeiten, Erfahrungen mit Kindern, etc."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center mb-6">
+                        <input
+                          id="andere_auftraggeber"
+                          name="andere_auftraggeber"
+                          type="checkbox"
+                          checked={formData.andere_auftraggeber}
+                          onChange={(e) => setFormData({ ...formData, andere_auftraggeber: e.target.checked })}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="andere_auftraggeber" className="ml-2 block text-sm text-gray-700">
+                          Ich habe andere Auftraggeber
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Jugendamt-spezifische Felder */}
+                {formData.role === 'jugendamt' && (
+                  <>
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Jugendamt-Informationen</h3>
+                      
+                      <div className="grid grid-cols-1 gap-4 mb-6">
+                        <div>
+                          <label htmlFor="jugendamt" className="block text-sm font-medium text-gray-700">
+                            Jugendamt *
+                          </label>
+                          <input
+                            id="jugendamt"
+                            name="jugendamt"
+                            type="text"
+                            value={formData.jugendamt}
+                            onChange={(e) => setFormData({ ...formData, jugendamt: e.target.value })}
+                            className="input"
+                            placeholder="z.B. Jugendamt Berlin-Mitte"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="telefon" className="block text-sm font-medium text-gray-700">
+                            Telefonnummer *
+                          </label>
+                          <input
+                            id="telefon"
+                            name="telefon"
+                            type="tel"
+                            value={formData.telefon}
+                            onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
+                            className="input"
+                            placeholder="+49 30 12345678"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Password Field */}
                 <div>
