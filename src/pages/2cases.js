@@ -384,7 +384,6 @@ export default function Cases() {
     </Layout>
   )
 }
-
 // Case Detail Modal Component
 function CaseDetailModal({ case_, caseServices, assignedHelper, onClose, onShowServiceBooking }) {
   const getServiceTypeIcon = (type) => {
