@@ -260,11 +260,6 @@ export default function Layout({ children }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <button className="relative p-2 rounded-lg hover:bg-gray-100">
-                <BellIcon className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              
               {/* User menu for mobile */}
               <div className="lg:hidden">
                 <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100">
