@@ -38,7 +38,6 @@ const getNavigationItems = (userRole, hasPermission) => {
     { name: 'Helfer', href: '/helpers', icon: UsersIcon, roles: ['admin'] },
     { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon, roles: ['admin', 'jugendamt'] },
-    { name: 'Statistiken', href: '/statistics', icon: ChartBarIcon, roles: ['admin'] },
     { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] }
   ]
 
