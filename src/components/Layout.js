@@ -72,6 +72,7 @@ export default function Layout({ children }) {
   const { user, userRole, userProfile, signOut, isAuthenticated, loading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -108,10 +109,19 @@ export default function Layout({ children }) {
   const navigation = getNavigationItems(userRole, () => true)
   
   const handleSignOut = async () => {
+    if (isSigningOut) return // Verhindere mehrfache Klicks
+    
+    setIsSigningOut(true)
     try {
       await signOut()
+      // Manuelle Weiterleitung als Fallback
+      router.push('/login')
     } catch (error) {
       console.error('Error signing out:', error)
+      // Auch bei Fehler zur Login-Seite weiterleiten
+      router.push('/login')
+    } finally {
+      setIsSigningOut(false)
     }
   }
 
@@ -209,10 +219,20 @@ export default function Layout({ children }) {
             
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+              disabled={isSigningOut}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ArrowRightOnRectangleIcon className="w-4 h-4" />
-              Abmelden
+              {isSigningOut ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  Abmelden...
+                </>
+              ) : (
+                <>
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  Abmelden
+                </>
+              )}
             </button>
           </div>
         </div>
