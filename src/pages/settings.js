@@ -1,5 +1,5 @@
 // src/pages/settings.js
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import Layout from '@/components/Layout'
 import { NotificationSettings } from '@/lib/notifications'
@@ -756,7 +756,7 @@ function UserSettings({ onSave }) {
     fetchUsers()
   }, [])
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       // Fetch helpers
       const { data: helpers, error: helpersError } = await supabase
@@ -799,7 +799,7 @@ function UserSettings({ onSave }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [error])
 
   return (
     <div className="p-6">

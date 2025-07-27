@@ -1,5 +1,5 @@
 // src/components/DocumentList.js
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   DocumentIcon,
   EyeIcon,
@@ -29,7 +29,7 @@ export default function DocumentList({
     loadDocuments()
   }, [helperId, userRole])
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -53,7 +53,7 @@ export default function DocumentList({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [helperId, userRole, onDocumentError])
 
   const handleDelete = async (filePath) => {
     if (!confirm('Sind Sie sicher, dass Sie dieses Dokument löschen möchten?')) {
