@@ -210,9 +210,7 @@ export default function Helpers() {
 
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
-                <div className="bg-white rounded-full p-3 shadow-lg">
-                  <EyeIcon className="w-6 h-6 text-blue-600" />
-                </div>
+                {/* Icon entfernt */}
               </div>
 
               <div className="p-6">

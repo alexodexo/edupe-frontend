@@ -32,8 +32,13 @@ export function useCases() {
   const { userProfile, userRole } = useAuth()
   const userId = userProfile?.helfer_id || userProfile?.ansprechpartner_id
 
+  // Für Admin: userId ist nicht nötig
+  const swrKey = (userRole === 'admin')
+    ? ['/api/cases', null, userRole]
+    : (userId && userRole ? ['/api/cases', userId, userRole] : null)
+
   const { data, error, mutate } = useSWR(
-    userId && userRole ? ['/api/cases', userId, userRole] : null,
+    swrKey,
     ([url, userId, userRole]) => fetcher(url, userId, userRole),
     {
       revalidateOnFocus: false,
