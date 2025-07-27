@@ -4,7 +4,8 @@ import Head from 'next/head'
 import Layout from '@/components/Layout'
 import { useDashboardData } from '@/hooks/useData'
 import { useAuth } from '@/lib/auth'
-import { LoadingPage, ErrorCard } from '@/components/Error'
+import { LoadingPage } from '@/components/Loading'
+import { ErrorCard } from '@/components/Error'
 import {
   UsersIcon,
   ClipboardDocumentCheckIcon,
@@ -49,7 +50,7 @@ export default function Dashboard() {
     return [
       {
         name: 'Verfügbare Helfer',
-        value: `${stats.helpers.available}/${stats.helpers.total}`,
+        value: `${stats.helpers?.available || 0}/${stats.helpers?.total || 0}`,
         change: '+3',
         changeType: 'increase',
         icon: UsersIcon,
@@ -57,7 +58,7 @@ export default function Dashboard() {
       },
       {
         name: 'Aktive Fälle',
-        value: stats.cases.active.toString(),
+        value: (stats.cases?.active || 0).toString(),
         change: '+2',
         changeType: 'increase',
         icon: ClipboardDocumentCheckIcon,
@@ -65,7 +66,7 @@ export default function Dashboard() {
       },
       {
         name: 'Stunden diese Woche',
-        value: Math.round(stats.services.totalHours).toString(),
+        value: Math.round(stats.services?.totalHours || 0).toString(),
         change: '+18%',
         changeType: 'increase',
         icon: ClockIcon,
@@ -73,7 +74,7 @@ export default function Dashboard() {
       },
       {
         name: 'Umsatz diesen Monat',
-        value: formatCurrency(stats.services.totalCosts),
+        value: formatCurrency(stats.services?.totalCosts || 0),
         change: '+23%',
         changeType: 'increase',
         icon: CurrencyEuroIcon,
@@ -227,7 +228,7 @@ export default function Dashboard() {
                           <p className="font-medium text-gray-900 text-sm">{activity.title}</p>
                           <p className="text-gray-600 text-sm">{activity.description}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {formatDateTime(activity.time)}
+                            {activity.time && formatDateTime(activity.time)}
                           </p>
                         </div>
                       </div>
@@ -295,19 +296,19 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Gesamt Fälle</span>
-                    <span className="font-semibold">{stats.cases.total}</span>
+                    <span className="font-semibold">{stats.cases?.total || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Aktive Helfer</span>
-                    <span className="font-semibold">{stats.helpers.available}</span>
+                    <span className="font-semibold">{stats.helpers?.available || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Pending Services</span>
-                    <span className="font-semibold">{stats.services.pending}</span>
+                    <span className="font-semibold">{stats.services?.pending || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Monatsumsatz</span>
-                    <span className="font-semibold">{formatCurrency(stats.services.totalCosts)}</span>
+                    <span className="font-semibold">{formatCurrency(stats.services?.totalCosts || 0)}</span>
                   </div>
                 </div>
               </div>

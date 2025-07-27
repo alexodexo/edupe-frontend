@@ -9,7 +9,7 @@ export function LoadingSpinner({ size = 'medium', color = 'primary' }) {
   }
 
   const colorClasses = {
-    primary: 'border-primary-500',
+    primary: 'border-blue-500',
     white: 'border-white',
     gray: 'border-gray-500',
   }
@@ -73,3 +73,6 @@ export function LoadingTable({ rows = 5, columns = 4 }) {
     </div>
   )
 }
+
+// Default export for backward compatibility
+export default LoadingSpinner
