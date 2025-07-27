@@ -60,8 +60,33 @@ async function getCases(req, res) {
 
     const { data: cases, error } = await query.order('erstellt_am', { ascending: false })
 
+    console.log('API /cases: cases:', cases)
     if (error) {
+      console.error('API /cases: error:', error)
       throw error
+    }
+
+    // Hole alle Fall-IDs
+    const fallIds = cases.map(c => c.fall_id)
+    console.log('API /cases: fallIds:', fallIds)
+    // Hole alle zugehörigen Jugendämter für diese Fälle
+    let jugendamtMap = {}
+    if (fallIds.length > 0) {
+      const { data: jugendamtFaelle, error: jugendamtError } = await supabase
+        .from('jugendamt_fall')
+        .select(`fall_id, ansprechpartner_id, jugendamt_ansprechpartner(jugendamt)`) // Nested select
+        .in('fall_id', fallIds)
+      console.log('API /cases: jugendamtFaelle:', jugendamtFaelle)
+      if (!jugendamtError && jugendamtFaelle) {
+        jugendamtFaelle.forEach(jf => {
+          if (!jugendamtMap[jf.fall_id]) jugendamtMap[jf.fall_id] = []
+          if (jf.jugendamt_ansprechpartner && jf.jugendamt_ansprechpartner.jugendamt) {
+            jugendamtMap[jf.fall_id].push(jf.jugendamt_ansprechpartner.jugendamt)
+          }
+        })
+      } else {
+        console.error('API /cases: jugendamtError:', jugendamtError)
+      }
     }
 
     // Transform data to match frontend expectations
@@ -94,6 +119,7 @@ async function getCases(req, res) {
             : 'Keine Adresse hinterlegt',
           school: case_.schule_oder_kita
         },
+        jugendaemter: jugendamtMap[case_.fall_id] || [], // <-- Array mit Jugendämtern
         assignedHelpers: assignedHelpers.map(h => h.helfer_id),
         assignedHelpersData: assignedHelpers,
         services: services,
@@ -105,7 +131,7 @@ async function getCases(req, res) {
         updatedAt: case_.aktualisiert_am
       }
     })
-
+    console.log('API /cases: transformedCases:', transformedCases)
     res.status(200).json(transformedCases)
   } catch (error) {
     console.error('Error fetching cases:', error)

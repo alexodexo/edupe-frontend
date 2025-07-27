@@ -160,3 +160,13 @@ FOREIGN KEY (erstellt_von) REFERENCES helfer(helfer_id);
 ALTER TABLE berichte 
 ADD CONSTRAINT berichte_aktualisiert_von_fkey 
 FOREIGN KEY (aktualisiert_von) REFERENCES helfer(helfer_id);
+
+
+CREATE TABLE jugendamt_fall (
+  fall_id UUID REFERENCES faelle(fall_id),
+  ansprechpartner_id UUID REFERENCES jugendamt_ansprechpartner(ansprechpartner_id),
+  erstellt_am      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  aktualisiert_am  TIMESTAMP,
+  aktualisiert_von UUID,
+  PRIMARY KEY (fall_id, ansprechpartner_id)
+);

@@ -34,6 +34,7 @@ export default function Cases() {
   const { cases, isLoading: casesLoading, error: casesError, refresh: refreshCases } = useCases()
   const { helpers, isLoading: helpersLoading } = useHelpers()
   
+  console.log({ cases, casesLoading, casesError })
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedFilters, setSelectedFilters] = useState({
     status: 'all',
@@ -49,14 +50,23 @@ export default function Cases() {
       const matchesSearch = 
         case_.caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         case_.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (case_.client?.school && case_.client.school.toLowerCase().includes(searchTerm.toLowerCase()))
+        (case_.client?.school && case_.client.school.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (Array.isArray(case_.jugendaemter) && case_.jugendaemter.some(j => j && j.toLowerCase().includes(searchTerm.toLowerCase())))
 
       const matchesStatus = selectedFilters.status === 'all' || case_.status === selectedFilters.status
       const matchesPriority = selectedFilters.priority === 'all' || case_.priority === selectedFilters.priority
+      const matchesJugendamt = selectedFilters.jugendamt === 'all' || (Array.isArray(case_.jugendaemter) && case_.jugendaemter.includes(selectedFilters.jugendamt))
 
-      return matchesSearch && matchesStatus && matchesPriority
+      return matchesSearch && matchesStatus && matchesPriority && matchesJugendamt
     })
   }, [cases, searchTerm, selectedFilters])
+
+  // Extrahiere alle Jugendämter für Filterauswahl
+  const allJugendaemter = useMemo(() => {
+    const set = new Set()
+    cases?.forEach(c => (c.jugendaemter||[]).forEach(j => j && set.add(j)))
+    return Array.from(set)
+  }, [cases])
 
   const handleCaseClick = (caseId) => {
     router.push(`/cases/${caseId}`)
@@ -165,7 +175,20 @@ export default function Cases() {
                 className="input pl-10"
               />
             </div>
-            
+            {/* Jugendamt-Filter */}
+            <div>
+              <select
+                value={selectedFilters.jugendamt}
+                onChange={e => setSelectedFilters(f => ({ ...f, jugendamt: e.target.value }))}
+                className="input"
+              >
+                <option value="all">Alle Jugendämter</option>
+                {allJugendaemter.map(j => (
+                  <option key={j} value={j}>{j}</option>
+                ))}
+              </select>
+            </div>
+            {/* Status- und Prioritätsfilter bleiben wie gehabt */}
             <div className="flex flex-wrap gap-3">
               <select 
                 value={selectedFilters.status}
@@ -268,6 +291,13 @@ export default function Cases() {
                       <CurrencyEuroIcon className="w-4 h-4" />
                       <span>{formatCurrency(case_.totalCosts || 0)}</span>
                     </div>
+                    {/* Jugendämter anzeigen */}
+                    {case_.jugendaemter && case_.jugendaemter.length > 0 && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <BuildingOfficeIcon className="w-4 h-4" />
+                        <span>{case_.jugendaemter.join(', ')}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Last Activity */}
