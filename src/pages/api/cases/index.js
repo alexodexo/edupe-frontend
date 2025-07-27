@@ -89,7 +89,9 @@ async function getCases(req, res) {
           firstName: case_.vorname,
           lastName: case_.nachname,
           birthDate: case_.geburtsdatum,
-          address: `${case_.strasse}, ${case_.plz} ${case_.stadt}`,
+          address: case_.strasse && case_.plz && case_.stadt 
+            ? `${case_.strasse}, ${case_.plz} ${case_.stadt}`
+            : 'Keine Adresse hinterlegt',
           school: case_.schule_oder_kita
         },
         assignedHelpers: assignedHelpers.map(h => h.helfer_id),
@@ -122,8 +124,20 @@ async function createCase(req, res) {
       stadt,
       schule_oder_kita,
       erstkontakt_text,
-      helfer_id
+      helfer_id,
+      priority,
+      planned_hours
     } = req.body
+
+    console.log('Received case data:', req.body) // Debug log
+
+    // Validate required fields
+    if (!vorname?.trim()) {
+      return res.status(400).json({ error: 'Vorname ist erforderlich' })
+    }
+    if (!nachname?.trim()) {
+      return res.status(400).json({ error: 'Nachname ist erforderlich' })
+    }
 
     // Generate aktenzeichen
     const year = new Date().getFullYear()
@@ -135,25 +149,32 @@ async function createCase(req, res) {
     const aktenzeichen = `F-${year}-${String((count || 0) + 1).padStart(3, '0')}`
 
     // Create case
+    const caseData = {
+      aktenzeichen,
+      vorname: vorname.trim(),
+      nachname: nachname.trim(),
+      geburtsdatum: geburtsdatum || null,
+      strasse: strasse?.trim() || null,
+      plz: plz?.trim() || null,
+      stadt: stadt?.trim() || null,
+      schule_oder_kita: schule_oder_kita?.trim() || null,
+      erstkontakt_text: erstkontakt_text?.trim() || null,
+      erstkontakt_datum: new Date().toISOString().split('T')[0],
+      status: 'offen'
+    }
+
+    console.log('Transformed case data for DB:', caseData) // Debug log
+
     const { data: newCase, error: caseError } = await supabase
       .from('faelle')
-      .insert({
-        aktenzeichen,
-        vorname,
-        nachname,
-        geburtsdatum,
-        strasse,
-        plz,
-        stadt,
-        schule_oder_kita,
-        erstkontakt_text,
-        erstkontakt_datum: new Date().toISOString().split('T')[0],
-        status: 'offen'
-      })
+      .insert(caseData)
       .select()
       .single()
 
-    if (caseError) throw caseError
+    if (caseError) {
+      console.error('Supabase error:', caseError)
+      throw caseError
+    }
 
     // Assign helper if provided
     if (helfer_id && newCase) {
@@ -171,9 +192,32 @@ async function createCase(req, res) {
       }
     }
 
-    res.status(201).json(newCase)
+    // Transform response back to frontend format
+    const transformedCase = {
+      id: newCase.fall_id,
+      caseNumber: newCase.aktenzeichen,
+      title: `Betreuung ${newCase.vorname} ${newCase.nachname}`,
+      description: newCase.erstkontakt_text || '',
+      status: newCase.status,
+      client: {
+        firstName: newCase.vorname,
+        lastName: newCase.nachname,
+        birthDate: newCase.geburtsdatum,
+        address: newCase.strasse && newCase.plz && newCase.stadt 
+          ? `${newCase.strasse}, ${newCase.plz} ${newCase.stadt}`
+          : 'Keine Adresse hinterlegt',
+        school: newCase.schule_oder_kita
+      },
+      createdAt: newCase.erstellt_am
+    }
+
+    res.status(201).json(transformedCase)
   } catch (error) {
     console.error('Error creating case:', error)
-    res.status(500).json({ error: 'Error creating case' })
+    res.status(500).json({ 
+      error: 'Error creating case',
+      details: error.message,
+      code: error.code 
+    })
   }
 }
