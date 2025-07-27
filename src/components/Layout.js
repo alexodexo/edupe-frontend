@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useAuth } from '@/lib/auth'
+import GlobalSearch from './GlobalSearch'
 import {
   HomeIcon,
   UsersIcon,
@@ -193,7 +194,11 @@ export default function Layout({ children }) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isActive 
+                      ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="w-5 h-5 mr-3" />
@@ -251,14 +256,7 @@ export default function Layout({ children }) {
             </button>
 
             <div className="flex-1 flex items-center gap-4 max-w-2xl">
-              <div className="relative flex-1">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Suchen..."
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+              <GlobalSearch />
             </div>
 
             <div className="flex items-center gap-3">
