@@ -196,27 +196,29 @@ export default function ServiceBooking({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden max-w-4xl mx-auto"
+      className="space-y-6"
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">Leistung buchen</h2>
-            <p className="text-blue-100 text-sm">
-              Fall: {caseData.caseNumber} • {helper.firstName} {helper.lastName}
-            </p>
-          </div>
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <ClockIcon className="w-6 h-6 text-blue-600" />
+            Leistung erfassen
+          </h3>
+          <p className="text-gray-600 text-sm mt-1">
+            Fall: {caseData.caseNumber} • {helper.vorname} {helper.nachname}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+        >
+          <XMarkIcon className="w-5 h-5" />
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Service Type Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
