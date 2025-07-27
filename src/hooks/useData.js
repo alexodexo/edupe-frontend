@@ -32,8 +32,11 @@ export function useCases() {
   const { userProfile, userRole } = useAuth()
   const userId = userProfile?.helfer_id || userProfile?.ansprechpartner_id
 
+  // Admin can see all cases without userId, others need userId
+  const shouldFetch = userRole === 'admin' || (userId && userRole)
+
   const { data, error, mutate } = useSWR(
-    userId && userRole ? ['/api/cases', userId, userRole] : null,
+    shouldFetch ? ['/api/cases', userId, userRole] : null,
     ([url, userId, userRole]) => fetcher(url, userId, userRole),
     {
       revalidateOnFocus: false,
