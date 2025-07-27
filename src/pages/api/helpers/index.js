@@ -42,11 +42,11 @@ async function getHelpers(req, res) {
           erstellt_am
         ),
         urlaube!urlaube_helfer_id_fkey!left(
-  urlaub_id,
-  von_datum,
-  bis_datum,
-  freigegeben
-)
+          urlaub_id,
+          von_datum,
+          bis_datum,
+          freigegeben
+        )
       `)
 
     // If helper role, only return own profile
@@ -152,49 +152,101 @@ async function getHelpers(req, res) {
 
 async function createHelper(req, res) {
   try {
+    // Map frontend field names to database field names
     const {
-      vorname,
-      nachname,
+      firstName,
+      lastName,
       email,
-      telefon_nummer,
-      strasse,
-      plz,
-      stadt,
-      geburtsdatum,
-      geschlecht,
-      qualifikationen,
-      sprachen,
+      phone,
+      street,
+      zipCode,
+      city,
+      birthDate,
+      gender,
+      qualifications,
+      languages,
       iban,
-      steuernummer
+      bic,
+      taxNumber,
+      hourlyRate,
+      availability
     } = req.body
+
+    console.log('Received data:', req.body) // Debug log
+
+    // Prepare data for database (German field names)
+    const helperData = {
+      vorname: firstName?.trim(),
+      nachname: lastName?.trim(),
+      email: email?.trim(),
+      telefon_nummer: phone?.trim(),
+      strasse: street?.trim(),
+      plz: zipCode?.trim(),
+      stadt: city?.trim(),
+      geburtsdatum: birthDate || null,
+      geschlecht: gender || null,
+      zusaetzliche_qualifikationen: Array.isArray(qualifications) && qualifications.length > 0 
+        ? qualifications.filter(q => q.trim()).join(', ') 
+        : null,
+      sprachen: languages?.trim() || null,
+      iban: iban?.trim() || null,
+      steuernummer: taxNumber?.trim() || null,
+      andere_auftraggeber: false
+    }
+
+    console.log('Transformed data for DB:', helperData) // Debug log
+
+    // Validate required fields
+    if (!helperData.vorname) {
+      return res.status(400).json({ error: 'Vorname ist erforderlich' })
+    }
+    if (!helperData.nachname) {
+      return res.status(400).json({ error: 'Nachname ist erforderlich' })
+    }
+    if (!helperData.email) {
+      return res.status(400).json({ error: 'E-Mail ist erforderlich' })
+    }
 
     const { data: newHelper, error } = await supabase
       .from('helfer')
-      .insert({
-        vorname,
-        nachname,
-        email,
-        telefon_nummer,
-        strasse,
-        plz,
-        stadt,
-        geburtsdatum,
-        geschlecht,
-        zusaetzliche_qualifikationen: Array.isArray(qualifikationen) ?
-          qualifikationen.join(', ') : qualifikationen,
-        sprachen,
-        iban,
-        steuernummer,
-        andere_auftraggeber: false
-      })
+      .insert(helperData)
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase error:', error)
+      throw error
+    }
 
-    res.status(201).json(newHelper)
+    // Transform response back to frontend format
+    const transformedHelper = {
+      id: newHelper.helfer_id,
+      firstName: newHelper.vorname,
+      lastName: newHelper.nachname,
+      email: newHelper.email,
+      phone: newHelper.telefon_nummer,
+      address: {
+        street: newHelper.strasse,
+        zipCode: newHelper.plz,
+        city: newHelper.stadt
+      },
+      qualifications: newHelper.zusaetzliche_qualifikationen 
+        ? newHelper.zusaetzliche_qualifikationen.split(',').map(q => q.trim()) 
+        : [],
+      bankDetails: {
+        iban: newHelper.iban,
+        bic: bic
+      },
+      createdAt: newHelper.erstellt_am
+    }
+
+    res.status(201).json(transformedHelper)
   } catch (error) {
     console.error('Error creating helper:', error)
-    res.status(500).json({ error: 'Error creating helper' })
+    res.status(500).json({ 
+      error: 'Error creating helper',
+      details: error.message,
+      code: error.code 
+    })
   }
 }

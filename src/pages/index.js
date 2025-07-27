@@ -316,36 +316,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Charts Placeholder */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Stunden-Entwicklung</h2>
-              <ChartBarIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <div className="h-64 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl flex items-center justify-center">
-              <div className="text-center">
-                <ChartBarIcon className="w-12 h-12 text-blue-400 mx-auto mb-2" />
-                <p className="text-blue-600 font-medium">Stunden-Chart</p>
-                <p className="text-blue-500 text-sm mt-1">Wird implementiert...</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Umsatz-Verteilung</h2>
-              <CurrencyEuroIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <div className="h-64 bg-gradient-to-br from-green-50 to-green-100 rounded-xl flex items-center justify-center">
-              <div className="text-center">
-                <CurrencyEuroIcon className="w-12 h-12 text-green-400 mx-auto mb-2" />
-                <p className="text-green-600 font-medium">Umsatz-Chart</p>
-                <p className="text-green-500 text-sm mt-1">Wird implementiert...</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        
       </div>
     </Layout>
   )

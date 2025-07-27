@@ -18,6 +18,15 @@ const fetcher = async (url, userId, userRole) => {
   return response.json()
 }
 
+// Simple fetcher for single resource
+const simpleFetcher = async (url) => {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+  return response.json()
+}
+
 // Cases Hooks
 export function useCases() {
   const { userProfile, userRole } = useAuth()
@@ -112,7 +121,27 @@ export function useHelpers() {
   }
 }
 
+// NEW: Enhanced helper hook that fetches single helper directly from API
 export function useHelper(helperId) {
+  const { data: helper, error, mutate } = useSWR(
+    helperId ? `/api/helpers/${helperId}` : null,
+    simpleFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true
+    }
+  )
+
+  return {
+    helper,
+    isLoading: !error && !helper && helperId,
+    error,
+    refresh: mutate
+  }
+}
+
+// Alternative: Use helper from the helpers list (for cases where you already have all helpers loaded)
+export function useHelperFromList(helperId) {
   const { helpers, isLoading, error } = useHelpers()
   
   const helper = useMemo(() => {
@@ -364,7 +393,8 @@ export function useCreateCase() {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to create case')
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to create case')
     }
 
     return response.json()
@@ -382,10 +412,50 @@ export function useCreateHelper() {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to create helper')
+      const errorData = await response.json()
+      console.error('Create helper error:', errorData)
+      throw new Error(errorData.error || 'Failed to create helper')
     }
 
     return response.json()
+  }, [])
+}
+
+// NEW: Update helper hook
+export function useUpdateHelper() {
+  return useCallback(async (id, helperData) => {
+    const response = await fetch(`/api/helpers/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(helperData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Update helper error:', errorData)
+      throw new Error(errorData.error || 'Failed to update helper')
+    }
+
+    return response.json()
+  }, [])
+}
+
+// NEW: Delete helper hook
+export function useDeleteHelper() {
+  return useCallback(async (id) => {
+    const response = await fetch(`/api/helpers/${id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Delete helper error:', errorData)
+      throw new Error(errorData.error || 'Failed to delete helper')
+    }
+
+    return true
   }, [])
 }
 
@@ -400,14 +470,53 @@ export function useCreateService() {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to create service')
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to create service')
     }
 
     return response.json()
   }, [])
 }
 
-// Local Storage Hook (unchanged)
+// Helper mutations for SWR cache invalidation
+export function useHelperMutations() {
+  const { mutate: mutateHelpers } = useSWR(['/api/helpers'], { revalidate: false })
+  
+  const createHelper = useCreateHelper()
+  const updateHelper = useUpdateHelper()
+  const deleteHelper = useDeleteHelper()
+
+  const createHelperWithRefresh = useCallback(async (helperData) => {
+    const result = await createHelper(helperData)
+    // Invalidate helpers cache to trigger refetch
+    mutateHelpers()
+    return result
+  }, [createHelper, mutateHelpers])
+
+  const updateHelperWithRefresh = useCallback(async (id, helperData) => {
+    const result = await updateHelper(id, helperData)
+    // Invalidate both helpers list and single helper cache
+    mutateHelpers()
+    useSWR.mutate(`/api/helpers/${id}`)
+    return result
+  }, [updateHelper, mutateHelpers])
+
+  const deleteHelperWithRefresh = useCallback(async (id) => {
+    const result = await deleteHelper(id)
+    // Invalidate both helpers list and single helper cache
+    mutateHelpers()
+    useSWR.mutate(`/api/helpers/${id}`)
+    return result
+  }, [deleteHelper, mutateHelpers])
+
+  return {
+    createHelper: createHelperWithRefresh,
+    updateHelper: updateHelperWithRefresh,
+    deleteHelper: deleteHelperWithRefresh
+  }
+}
+
+// Local Storage Hook
 export function useLocalStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(() => {
     try {
