@@ -130,7 +130,7 @@ export default function Settings() {
 
 // Profile Settings Component
 function ProfileSettings({ onSave }) {
-  const { user, userRole, userProfile } = useAuth()
+  const { user, userRole, userProfile, updatePassword } = useAuth()
   const { success, error } = useNotifications()
   const [isLoading, setIsLoading] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -239,11 +239,7 @@ function ProfileSettings({ onSave }) {
     setIsLoading(true)
 
     try {
-      const { error: passwordError } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
-      })
-
-      if (passwordError) throw passwordError
+      await updatePassword(passwordData.newPassword)
 
       success('Passwort wurde erfolgreich geändert')
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })

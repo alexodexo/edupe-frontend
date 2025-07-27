@@ -16,7 +16,7 @@ import {
 
 export default function Login() {
   const router = useRouter()
-  const { signIn, resetPassword, user, loading } = useAuth()
+  const { signIn, user, loading } = useAuth()
 
   const [formData, setFormData] = useState({
     email: '',
@@ -27,7 +27,6 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   // Redirect if already logged in
   useEffect(() => {
@@ -58,25 +57,7 @@ export default function Login() {
     }
   }
 
-  const handlePasswordReset = async () => {
-    if (!formData.email) {
-      setError('Bitte geben Sie Ihre E-Mail-Adresse ein')
-      return
-    }
 
-    setIsLoading(true)
-
-    try {
-      await resetPassword(formData.email)
-      setError('')
-      setSuccess('E-Mail zum Zurücksetzen des Passworts wurde gesendet. Bitte überprüfen Sie Ihren Posteingang.')
-    } catch (error) {
-      console.error('Password reset error:', error)
-      setError(error.message || 'Fehler beim Senden der E-Mail')
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   // Show loading if auth is still initializing
   if (loading) {
@@ -128,12 +109,7 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Success Message */}
-              {success && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-600">{success}</p>
-                </div>
-              )}
+
 
               <form className="space-y-6" onSubmit={handleSubmit}>
                 {/* Email Field */}
@@ -208,14 +184,12 @@ export default function Login() {
                   </div>
 
                   <div className="text-sm">
-                    <button
-                      type="button"
-                      onClick={handlePasswordReset}
-                      disabled={isLoading}
-                      className="font-medium text-blue-600 hover:text-blue-500 disabled:opacity-50"
+                    <Link
+                      href="/auth/forgot-password"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Passwort vergessen?
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
