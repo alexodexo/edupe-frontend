@@ -362,6 +362,7 @@ export default function HelperDetail() {
                 </div>
               </div>
 
+
               {/* Actions */}
               <div className="space-y-6">
                 <div className="card p-6">
