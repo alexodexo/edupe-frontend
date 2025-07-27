@@ -60,8 +60,33 @@ async function getCases(req, res) {
 
     const { data: cases, error } = await query.order('erstellt_am', { ascending: false })
 
+    console.log('API /cases: cases:', cases)
     if (error) {
+      console.error('API /cases: error:', error)
       throw error
+    }
+
+    // Hole alle Fall-IDs
+    const fallIds = cases.map(c => c.fall_id)
+    console.log('API /cases: fallIds:', fallIds)
+    // Hole alle zugehörigen Jugendämter für diese Fälle
+    let jugendamtMap = {}
+    if (fallIds.length > 0) {
+      const { data: jugendamtFaelle, error: jugendamtError } = await supabase
+        .from('jugendamt_fall')
+        .select(`fall_id, ansprechpartner_id, jugendamt_ansprechpartner(jugendamt)`) // Nested select
+        .in('fall_id', fallIds)
+      console.log('API /cases: jugendamtFaelle:', jugendamtFaelle)
+      if (!jugendamtError && jugendamtFaelle) {
+        jugendamtFaelle.forEach(jf => {
+          if (!jugendamtMap[jf.fall_id]) jugendamtMap[jf.fall_id] = []
+          if (jf.jugendamt_ansprechpartner && jf.jugendamt_ansprechpartner.jugendamt) {
+            jugendamtMap[jf.fall_id].push(jf.jugendamt_ansprechpartner.jugendamt)
+          }
+        })
+      } else {
+        console.error('API /cases: jugendamtError:', jugendamtError)
+      }
     }
 
     // Transform data to match frontend expectations
@@ -89,9 +114,12 @@ async function getCases(req, res) {
           firstName: case_.vorname,
           lastName: case_.nachname,
           birthDate: case_.geburtsdatum,
-          address: `${case_.strasse}, ${case_.plz} ${case_.stadt}`,
+          address: case_.strasse && case_.plz && case_.stadt 
+            ? `${case_.strasse}, ${case_.plz} ${case_.stadt}`
+            : 'Keine Adresse hinterlegt',
           school: case_.schule_oder_kita
         },
+        jugendaemter: jugendamtMap[case_.fall_id] || [], // <-- Array mit Jugendämtern
         assignedHelpers: assignedHelpers.map(h => h.helfer_id),
         assignedHelpersData: assignedHelpers,
         services: services,
@@ -103,7 +131,7 @@ async function getCases(req, res) {
         updatedAt: case_.aktualisiert_am
       }
     })
-
+    console.log('API /cases: transformedCases:', transformedCases)
     res.status(200).json(transformedCases)
   } catch (error) {
     console.error('Error fetching cases:', error)
@@ -122,8 +150,20 @@ async function createCase(req, res) {
       stadt,
       schule_oder_kita,
       erstkontakt_text,
-      helfer_id
+      helfer_id,
+      priority,
+      planned_hours
     } = req.body
+
+    console.log('Received case data:', req.body) // Debug log
+
+    // Validate required fields
+    if (!vorname?.trim()) {
+      return res.status(400).json({ error: 'Vorname ist erforderlich' })
+    }
+    if (!nachname?.trim()) {
+      return res.status(400).json({ error: 'Nachname ist erforderlich' })
+    }
 
     // Generate aktenzeichen
     const year = new Date().getFullYear()
@@ -135,25 +175,32 @@ async function createCase(req, res) {
     const aktenzeichen = `F-${year}-${String((count || 0) + 1).padStart(3, '0')}`
 
     // Create case
+    const caseData = {
+      aktenzeichen,
+      vorname: vorname.trim(),
+      nachname: nachname.trim(),
+      geburtsdatum: geburtsdatum || null,
+      strasse: strasse?.trim() || null,
+      plz: plz?.trim() || null,
+      stadt: stadt?.trim() || null,
+      schule_oder_kita: schule_oder_kita?.trim() || null,
+      erstkontakt_text: erstkontakt_text?.trim() || null,
+      erstkontakt_datum: new Date().toISOString().split('T')[0],
+      status: 'offen'
+    }
+
+    console.log('Transformed case data for DB:', caseData) // Debug log
+
     const { data: newCase, error: caseError } = await supabase
       .from('faelle')
-      .insert({
-        aktenzeichen,
-        vorname,
-        nachname,
-        geburtsdatum,
-        strasse,
-        plz,
-        stadt,
-        schule_oder_kita,
-        erstkontakt_text,
-        erstkontakt_datum: new Date().toISOString().split('T')[0],
-        status: 'offen'
-      })
+      .insert(caseData)
       .select()
       .single()
 
-    if (caseError) throw caseError
+    if (caseError) {
+      console.error('Supabase error:', caseError)
+      throw caseError
+    }
 
     // Assign helper if provided
     if (helfer_id && newCase) {
@@ -171,9 +218,32 @@ async function createCase(req, res) {
       }
     }
 
-    res.status(201).json(newCase)
+    // Transform response back to frontend format
+    const transformedCase = {
+      id: newCase.fall_id,
+      caseNumber: newCase.aktenzeichen,
+      title: `Betreuung ${newCase.vorname} ${newCase.nachname}`,
+      description: newCase.erstkontakt_text || '',
+      status: newCase.status,
+      client: {
+        firstName: newCase.vorname,
+        lastName: newCase.nachname,
+        birthDate: newCase.geburtsdatum,
+        address: newCase.strasse && newCase.plz && newCase.stadt 
+          ? `${newCase.strasse}, ${newCase.plz} ${newCase.stadt}`
+          : 'Keine Adresse hinterlegt',
+        school: newCase.schule_oder_kita
+      },
+      createdAt: newCase.erstellt_am
+    }
+
+    res.status(201).json(transformedCase)
   } catch (error) {
     console.error('Error creating case:', error)
-    res.status(500).json({ error: 'Error creating case' })
+    res.status(500).json({ 
+      error: 'Error creating case',
+      details: error.message,
+      code: error.code 
+    })
   }
 }

@@ -32,13 +32,8 @@ export function useCases() {
   const { userProfile, userRole } = useAuth()
   const userId = userProfile?.helfer_id || userProfile?.ansprechpartner_id
 
-  // Für Admin: userId ist nicht nötig
-  const swrKey = (userRole === 'admin')
-    ? ['/api/cases', null, userRole]
-    : (userId && userRole ? ['/api/cases', userId, userRole] : null)
-
   const { data, error, mutate } = useSWR(
-    swrKey,
+    userId && userRole ? ['/api/cases', userId, userRole] : null,
     ([url, userId, userRole]) => fetcher(url, userId, userRole),
     {
       revalidateOnFocus: false,
@@ -71,7 +66,27 @@ export function useCases() {
   }
 }
 
+// NEW: Enhanced case hook that fetches single case directly from API
 export function useCase(caseId) {
+  const { data: case_, error, mutate } = useSWR(
+    caseId ? `/api/cases/${caseId}` : null,
+    simpleFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true
+    }
+  )
+
+  return {
+    case: case_,
+    isLoading: !error && !case_ && caseId,
+    error,
+    refresh: mutate
+  }
+}
+
+// Alternative: Use case from the cases list (for cases where you already have all cases loaded)
+export function useCaseFromList(caseId) {
   const { cases, isLoading, error } = useCases()
   
   const case_ = useMemo(() => {
@@ -464,6 +479,44 @@ export function useDeleteHelper() {
   }, [])
 }
 
+// NEW: Update case hook
+export function useUpdateCase() {
+  return useCallback(async (id, caseData) => {
+    const response = await fetch(`/api/cases/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(caseData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Update case error:', errorData)
+      throw new Error(errorData.error || 'Failed to update case')
+    }
+
+    return response.json()
+  }, [])
+}
+
+// NEW: Delete case hook
+export function useDeleteCase() {
+  return useCallback(async (id) => {
+    const response = await fetch(`/api/cases/${id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('Delete case error:', errorData)
+      throw new Error(errorData.error || 'Failed to delete case')
+    }
+
+    return true
+  }, [])
+}
+
 export function useCreateService() {
   return useCallback(async (serviceData) => {
     const response = await fetch('/api/services', {
@@ -481,6 +534,44 @@ export function useCreateService() {
 
     return response.json()
   }, [])
+}
+
+// Case mutations for SWR cache invalidation
+export function useCaseMutations() {
+  const { mutate: mutateCases } = useSWR(['/api/cases'], { revalidate: false })
+  
+  const createCase = useCreateCase()
+  const updateCase = useUpdateCase()
+  const deleteCase = useDeleteCase()
+
+  const createCaseWithRefresh = useCallback(async (caseData) => {
+    const result = await createCase(caseData)
+    // Invalidate cases cache to trigger refetch
+    mutateCases()
+    return result
+  }, [createCase, mutateCases])
+
+  const updateCaseWithRefresh = useCallback(async (id, caseData) => {
+    const result = await updateCase(id, caseData)
+    // Invalidate both cases list and single case cache
+    mutateCases()
+    useSWR.mutate(`/api/cases/${id}`)
+    return result
+  }, [updateCase, mutateCases])
+
+  const deleteCaseWithRefresh = useCallback(async (id) => {
+    const result = await deleteCase(id)
+    // Invalidate both cases list and single case cache
+    mutateCases()
+    useSWR.mutate(`/api/cases/${id}`)
+    return result
+  }, [deleteCase, mutateCases])
+
+  return {
+    createCase: createCaseWithRefresh,
+    updateCase: updateCaseWithRefresh,
+    deleteCase: deleteCaseWithRefresh
+  }
 }
 
 // Helper mutations for SWR cache invalidation
