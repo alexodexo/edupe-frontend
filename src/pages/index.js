@@ -1,6 +1,7 @@
 // src/pages/index.js
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import { useDashboardData } from '@/hooks/useData'
 import { useAuth } from '@/lib/auth'
@@ -31,6 +32,7 @@ import {
 } from '@/lib/types'
 
 export default function Dashboard() {
+  const router = useRouter()
   const { userRole, userProfile } = useAuth()
   const [timeRange, setTimeRange] = useState('week') // week, month, quarter
   
@@ -42,6 +44,13 @@ export default function Dashboard() {
     error,
     refresh 
   } = useDashboardData()
+
+  // Redirect unverified Jugendamt to profile page
+  useEffect(() => {
+    if (userRole === 'jugendamt_unverifiziert') {
+      router.push('/profile')
+    }
+  }, [userRole, router])
 
   // Calculate trend-like stats (simplified for demo)
   const statsWithTrends = useMemo(() => {

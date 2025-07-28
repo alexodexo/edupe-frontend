@@ -65,6 +65,13 @@ export function AuthProvider({ children }) {
           .eq('mail', authUser.email)
           .single()
         profile = data
+      } else if (role === 'jugendamt_unverifiziert') {
+        // Unverifizierte Jugendämter haben kein Profil in der DB
+        profile = {
+          name: `${authUser.user_metadata?.first_name || ''} ${authUser.user_metadata?.last_name || ''}`.trim(),
+          email: authUser.email,
+          role: 'jugendamt_unverifiziert'
+        }
       }
       // For admin, we use the auth user data
       
@@ -163,7 +170,11 @@ export function AuthProvider({ children }) {
         'view_own_cases', 
         'view_reports', 
         'view_invoices',
-        'approve_services'
+        'approve_services',
+        'edit_own_profile'
+      ],
+      jugendamt_unverifiziert: [
+        'view_own_profile'
       ]
     }
 

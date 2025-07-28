@@ -82,6 +82,7 @@ export default async function handler(req, res) {
 
     // 2. Profil in der entsprechenden Tabelle erstellen
     let profileError = null
+    let isVerified = false
 
     if (role === 'helper') {
       const { error } = await supabase
@@ -115,17 +116,35 @@ export default async function handler(req, res) {
         })
 
       profileError = error
+      isVerified = true
     } else if (role === 'jugendamt') {
-      const { error } = await supabase
+      // Prüfen, ob bereits ein Jugendamt-Eintrag mit dieser E-Mail existiert
+      const { data: existingJugendamt, error: checkError } = await supabase
         .from('jugendamt_ansprechpartner')
-        .insert({
-          jugendamt: jugendamt,
-          name: `${firstName} ${lastName}`,
-          mail: email,
-          telefon: telefon
-        })
+        .select('ansprechpartner_id')
+        .eq('mail', email)
+        .single()
 
-      profileError = error
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned
+        profileError = checkError
+      } else if (existingJugendamt) {
+        // Jugendamt existiert bereits mit dieser E-Mail - Eintrag aktualisieren
+        const { error } = await supabase
+          .from('jugendamt_ansprechpartner')
+          .update({
+            name: `${firstName} ${lastName}`,
+            telefon: telefon
+          })
+          .eq('ansprechpartner_id', existingJugendamt.ansprechpartner_id)
+
+        profileError = error
+        isVerified = true
+      } else {
+        // Jugendamt existiert nicht - nur Auth-User erstellen, kein Profil
+        // Kein Fehler, da das normal ist für unverifizierte Jugendämter
+        isVerified = false
+      }
     }
 
     if (profileError) {
@@ -137,7 +156,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: 'Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse.',
+      message: role === 'jugendamt' && !isVerified
+        ? 'Registrierung erfolgreich! Ihr Account wird nach Überprüfung durch einen Administrator freigeschaltet. Bitte bestätigen Sie zunächst Ihre E-Mail-Adresse.'
+        : 'Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse.',
       user: authData.user
     })
 

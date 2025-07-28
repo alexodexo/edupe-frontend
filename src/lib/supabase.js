@@ -72,7 +72,7 @@ export const getUserRole = async (user) => {
 
   if (helfer) return 'helper'
 
-  // Check if user is in jugendamt_ansprechpartner table  
+  // Check if user is in jugendamt_ansprechpartner table (verifiziert)
   const { data: jugendamt } = await supabase
     .from('jugendamt_ansprechpartner')
     .select('ansprechpartner_id')
@@ -80,6 +80,11 @@ export const getUserRole = async (user) => {
     .single()
 
   if (jugendamt) return 'jugendamt'
+
+  // Check if user has jugendamt role in metadata but no profile (unverifiziert)
+  if (user.user_metadata?.role === 'jugendamt') {
+    return 'jugendamt_unverifiziert'
+  }
 
   // Default to admin if no specific role found
   return 'admin'
