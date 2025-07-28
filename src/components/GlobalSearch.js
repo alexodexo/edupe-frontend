@@ -156,11 +156,11 @@ const getSearchCategories = (userRole) => {
 
   categories.push({
     id: 'contacts',
-    name: 'Kontakte',
+    name: 'Ansprechpersonen',
     icon: UserCircleIcon,
     color: 'text-gray-600',
     bgColor: 'bg-gray-50',
-    placeholder: 'Kontakte suchen (Name, Jugendamt...)...'
+    placeholder: 'Ansprechpersonen suchen (Name, Jugendamt...)...'
   })
 
   return categories
@@ -261,7 +261,8 @@ export default function GlobalSearch() {
 
   // Real search function with API integration
   const searchData = useCallback(async (searchQuery, category = 'all') => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
+    // Bei "all" Kategorie nur suchen wenn Query vorhanden
+    if (category === 'all' && (!searchQuery || searchQuery.trim().length < 2)) {
       setResults([])
       setTotalCount(0)
       return
@@ -277,7 +278,7 @@ export default function GlobalSearch() {
     
     try {
       const response = await fetch(
-        `/api/search/global?q=${encodeURIComponent(searchQuery)}&category=${category}&limit=20`,
+        `/api/search/global?q=${encodeURIComponent(searchQuery || '')}&category=${category}&limit=5`,
         { signal: abortControllerRef.current.signal }
       )
       
@@ -313,11 +314,16 @@ export default function GlobalSearch() {
     }
   }, [])
 
-  // Debounced search
+  // Debounced search and category-based initial loading
   useEffect(() => {
+    if (!isOpen) return // Nicht suchen wenn Modal geschlossen ist
+    
     const timer = setTimeout(() => {
-      if (query) {
+      if (query.trim()) {
         searchData(query, activeCategory)
+      } else if (activeCategory !== 'all') {
+        // Bei anderen Kategorien erste Treffer laden
+        searchData('', activeCategory)
       } else {
         setResults([])
         setTotalCount(0)
@@ -325,7 +331,7 @@ export default function GlobalSearch() {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [query, activeCategory, searchData])
+  }, [query, activeCategory, searchData, isOpen])
 
   // Keyboard shortcuts and navigation
   useEffect(() => {
@@ -350,13 +356,13 @@ export default function GlobalSearch() {
       // Arrow navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
-        const showingQuickActions = !query && quickActions.length > 0
-        const showingRecent = !query && recentSearches.length > 0
+        const showingQuickActions = !query && activeCategory === 'all' && quickActions.length > 0
+        const showingRecent = !query && activeCategory === 'all' && recentSearches.length > 0
         
         let totalItems = 0
         if (showingQuickActions) totalItems += quickActions.length
         if (showingRecent) totalItems += recentSearches.length
-        if (query) totalItems = results.length
+        if (query || activeCategory !== 'all') totalItems = results.length
 
         if (totalItems === 0) return
 
@@ -387,8 +393,8 @@ export default function GlobalSearch() {
   }, [isOpen, results, quickActions, recentSearches, selectedIndex, query, categories])
 
   const handleSelect = useCallback((index) => {
-    const showingQuickActions = !query && quickActions.length > 0
-    const showingRecent = !query && recentSearches.length > 0
+    const showingQuickActions = !query && activeCategory === 'all' && quickActions.length > 0
+    const showingRecent = !query && activeCategory === 'all' && recentSearches.length > 0
     
     let item = null
     
@@ -399,15 +405,17 @@ export default function GlobalSearch() {
     } else if (showingRecent && showingQuickActions && index >= quickActions.length) {
       const recentIndex = index - quickActions.length
       item = recentSearches[recentIndex]?.result
-    } else if (query && results[index]) {
+    } else if (results[index]) {
       item = results[index]
-      saveRecentSearch(query, item) // Save to recent searches
+      if (query) {
+        saveRecentSearch(query, item) // Save to recent searches only when there's a query
+      }
     }
     
     if (item?.href) {
       // Log analytics for selected result
-      if (query && results.length > 0 && results[index]) {
-        searchAnalytics.logSearch(query, activeCategory, totalCount, item)
+      if (results.length > 0 && results[index]) {
+        searchAnalytics.logSearch(query || '', activeCategory, totalCount, item)
       }
       
       setIsOpen(false)
@@ -416,17 +424,38 @@ export default function GlobalSearch() {
       setSelectedIndex(0)
       router.push(item.href)
     }
-  }, [query, quickActions, recentSearches, results, activeCategory, totalCount, router])
+  }, [query, activeCategory, quickActions, recentSearches, results, totalCount, router, saveRecentSearch])
 
   const handleOpen = () => {
     setIsOpen(true)
     setSelectedIndex(0)
-    setTimeout(() => inputRef.current?.focus(), 100)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      // Beim Öffnen: wenn aktive Kategorie nicht "all" ist, Daten laden
+      if (activeCategory !== 'all') {
+        console.log('Opening with category:', activeCategory)
+        searchData('', activeCategory)
+      }
+    }, 100)
   }
 
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId)
     setSelectedIndex(0)
+    setQuery('') // Query zurücksetzen
+    
+    console.log('Category changed to:', categoryId)
+    
+    // Bei Kategoriewechsel sofort laden wenn nicht "all"
+    setTimeout(() => {
+      if (categoryId !== 'all') {
+        console.log('Loading data for category:', categoryId)
+        searchData('', categoryId)
+      } else {
+        setResults([])
+        setTotalCount(0)
+      }
+    }, 50)
   }
 
   const getCurrentPlaceholder = () => {
@@ -457,14 +486,14 @@ export default function GlobalSearch() {
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/10 z-50"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex min-h-full items-start justify-center p-4 pt-16">
-              <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+          <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setIsOpen(false)}>
+            <div className="flex min-h-full items-start justify-start p-4 pt-16 lg:pl-80">
+              <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Search input */}
                 <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
@@ -515,8 +544,8 @@ export default function GlobalSearch() {
 
                 {/* Results */}
                 <div className="max-h-96 overflow-y-auto">
-                  {/* Quick Actions */}
-                  {!query && quickActions.length > 0 && (
+                  {/* Quick Actions - nur bei "Alles" Kategorie anzeigen */}
+                  {!query && activeCategory === 'all' && quickActions.length > 0 && (
                     <div className="p-3">
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3 flex items-center gap-2">
                         <FireIcon className="w-4 h-4" />
@@ -548,8 +577,8 @@ export default function GlobalSearch() {
                     </div>
                   )}
 
-                  {/* Recent Searches */}
-                  {!query && recentSearches.length > 0 && (
+                  {/* Recent Searches - nur bei "Alles" Kategorie anzeigen */}
+                  {!query && activeCategory === 'all' && recentSearches.length > 0 && (
                     <div className="p-3 border-t border-gray-100">
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3 flex items-center gap-2">
                         <ClockIcon className="w-4 h-4" />
@@ -603,16 +632,25 @@ export default function GlobalSearch() {
                     </div>
                   )}
 
+                  {/* No results for category without query */}
+                  {!query && activeCategory !== 'all' && !loading && results.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <MagnifyingGlassIcon className="w-12 h-12 mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">Keine Einträge in dieser Kategorie</p>
+                      <p className="text-sm">Es sind noch keine Daten vorhanden</p>
+                    </div>
+                  )}
+
                   {/* Search Results */}
-                  {query && results.length > 0 && (
+                  {results.length > 0 && (
                     <div className="p-3">
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3 flex items-center gap-2 justify-between">
                         <span className="flex items-center gap-2">
                           <MagnifyingGlassIcon className="w-4 h-4" />
-                          Suchergebnisse
+                          {query ? 'Suchergebnisse' : 'Neueste Einträge'}
                         </span>
                         <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded-full text-xs">
-                          {totalCount} gefunden
+                          {totalCount} {query ? 'gefunden' : 'Einträge'}
                         </span>
                       </h3>
                       {results.map((result, index) => {

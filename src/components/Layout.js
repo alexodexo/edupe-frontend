@@ -7,6 +7,7 @@ import GlobalSearch from './GlobalSearch'
 import {
   HomeIcon,
   UsersIcon,
+  UserGroupIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   CurrencyEuroIcon,
@@ -37,6 +38,7 @@ const getNavigationItems = (userRole, hasPermission) => {
   const adminItems = [
     { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['admin', 'helper', 'jugendamt'] },
     { name: 'Helfer', href: '/helpers', icon: UsersIcon, roles: ['admin'] },
+    { name: 'Ansprechpartner', href: '/ansprechpartner', icon: UserGroupIcon, roles: ['admin'] },
     { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] }
@@ -208,24 +210,12 @@ export default function Layout({ children }) {
             })}
           </nav>
 
-          {/* User profile */}
+          {/* User profile - nur Logout Button */}
           <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-gray-600 font-medium text-sm">{getUserInitials()}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {getUserDisplayName()}
-                </p>
-                <p className="text-xs text-gray-500">{getRoleLabel()}</p>
-              </div>
-            </div>
-            
             <button
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center gap-3 px-3 py-3 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSigningOut ? (
                 <>
@@ -234,7 +224,7 @@ export default function Layout({ children }) {
                 </>
               ) : (
                 <>
-                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
                   Abmelden
                 </>
               )}
@@ -260,12 +250,22 @@ export default function Layout({ children }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <button className="relative p-2 rounded-lg hover:bg-gray-100">
-                <BellIcon className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              
-              {/* User menu for mobile */}
+              {/* Benutzerinformationen für Desktop */}
+              <div className="hidden lg:flex items-center gap-3 mr-4">
+                <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-medium text-sm">{getUserInitials()}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900 leading-tight">
+                      {getUserDisplayName()}
+                    </p>
+                    <p className="text-xs text-gray-500">{getRoleLabel()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* User menu für Mobile */}
               <div className="lg:hidden">
                 <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
