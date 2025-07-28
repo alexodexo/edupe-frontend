@@ -6,19 +6,26 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { q: query, category = 'all', limit = 10 } = req.query
+  const { q: query, category = 'all', limit = 5 } = req.query
 
-  if (!query || query.trim().length < 2) {
+  // Bei leerer Suche nur bei "all" Kategorie nichts zurückgeben
+  const hasSearchTerm = query && query.trim().length > 0
+  
+  console.log('API Check:', { query, category, hasSearchTerm })
+  
+  if (!hasSearchTerm && category === 'all') {
     return res.json({ results: [], totalCount: 0 })
   }
 
   try {
-    const searchTerm = query.trim()
+    const searchTerm = hasSearchTerm ? query.trim() : ''
     const results = []
+    
+    console.log('Search API called:', { query, category, hasSearchTerm, searchTerm })
 
     // Suche in Fällen
     if (category === 'all' || category === 'cases') {
-      const { data: cases, error: casesError } = await supabase
+      let casesQuery = supabase
         .from('faelle')
         .select(`
           fall_id,
@@ -30,9 +37,15 @@ export default async function handler(req, res) {
           stadt,
           erstellt_am
         `)
-        .or(`vorname.ilike.%${searchTerm}%,nachname.ilike.%${searchTerm}%,aktenzeichen.ilike.%${searchTerm}%,schule.ilike.%${searchTerm}%,stadt.ilike.%${searchTerm}%`)
         .order('erstellt_am', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        casesQuery = casesQuery.or(`vorname.ilike.%${searchTerm}%,nachname.ilike.%${searchTerm}%,aktenzeichen.ilike.%${searchTerm}%,schule.ilike.%${searchTerm}%,stadt.ilike.%${searchTerm}%`)
+      }
+
+      const { data: cases, error: casesError } = await casesQuery
 
       if (!casesError && cases) {
         cases.forEach(caseItem => {
@@ -55,7 +68,7 @@ export default async function handler(req, res) {
 
     // Suche in Helfern
     if (category === 'all' || category === 'helpers') {
-      const { data: helpers, error: helpersError } = await supabase
+      let helpersQuery = supabase
         .from('helfer')
         .select(`
           helfer_id,
@@ -68,9 +81,15 @@ export default async function handler(req, res) {
           sprachen,
           erstellt_am
         `)
-        .or(`vorname.ilike.%${searchTerm}%,nachname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,stadt.ilike.%${searchTerm}%,hoechster_abschluss.ilike.%${searchTerm}%`)
         .order('erstellt_am', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        helpersQuery = helpersQuery.or(`vorname.ilike.%${searchTerm}%,nachname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,stadt.ilike.%${searchTerm}%,hoechster_abschluss.ilike.%${searchTerm}%`)
+      }
+
+      const { data: helpers, error: helpersError } = await helpersQuery
 
       if (!helpersError && helpers) {
         helpers.forEach(helper => {
@@ -93,7 +112,7 @@ export default async function handler(req, res) {
 
     // Suche in Berichten
     if (category === 'all' || category === 'reports') {
-      const { data: reports, error: reportsError } = await supabase
+      let reportsQuery = supabase
         .from('berichte')
         .select(`
           bericht_id,
@@ -104,9 +123,15 @@ export default async function handler(req, res) {
           gesamtstunden,
           faelle!inner(vorname, nachname, aktenzeichen)
         `)
-        .or(`titel.ilike.%${searchTerm}%,inhalt.ilike.%${searchTerm}%`)
         .order('erstellt_am', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        reportsQuery = reportsQuery.or(`titel.ilike.%${searchTerm}%,inhalt.ilike.%${searchTerm}%`)
+      }
+
+      const { data: reports, error: reportsError } = await reportsQuery
 
       if (!reportsError && reports) {
         reports.forEach(report => {
@@ -129,7 +154,7 @@ export default async function handler(req, res) {
 
     // Suche in Abrechnungen
     if (category === 'all' || category === 'billing') {
-      const { data: billings, error: billingsError } = await supabase
+      let billingsQuery = supabase
         .from('ausgangsrechnung')
         .select(`
           rechnung_id,
@@ -139,9 +164,15 @@ export default async function handler(req, res) {
           rechnungsdatum,
           faelle!inner(vorname, nachname, aktenzeichen)
         `)
-        .or(`rechnungsnummer.ilike.%${searchTerm}%`)
         .order('rechnungsdatum', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        billingsQuery = billingsQuery.or(`rechnungsnummer.ilike.%${searchTerm}%`)
+      }
+
+      const { data: billings, error: billingsError } = await billingsQuery
 
       if (!billingsError && billings) {
         billings.forEach(billing => {
@@ -164,7 +195,7 @@ export default async function handler(req, res) {
 
     // Suche in Leistungen/Services
     if (category === 'all' || category === 'services') {
-      const { data: services, error: servicesError } = await supabase
+      let servicesQuery = supabase
         .from('leistungen')
         .select(`
           leistung_id,
@@ -177,9 +208,15 @@ export default async function handler(req, res) {
           faelle!inner(vorname, nachname),
           helfer!inner(vorname, nachname)
         `)
-        .or(`standort.ilike.%${searchTerm}%,notiz.ilike.%${searchTerm}%,typ.ilike.%${searchTerm}%`)
         .order('startzeit', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        servicesQuery = servicesQuery.or(`standort.ilike.%${searchTerm}%,notiz.ilike.%${searchTerm}%,typ.ilike.%${searchTerm}%`)
+      }
+
+      const { data: services, error: servicesError } = await servicesQuery
 
       if (!servicesError && services) {
         services.forEach(service => {
@@ -206,7 +243,7 @@ export default async function handler(req, res) {
 
     // Suche in Jugendamt Ansprechpartnern
     if (category === 'all' || category === 'contacts') {
-      const { data: contacts, error: contactsError } = await supabase
+      let contactsQuery = supabase
         .from('jugendamt_ansprechpartner')
         .select(`
           ansprechpartner_id,
@@ -216,9 +253,15 @@ export default async function handler(req, res) {
           telefon,
           erstellt_am
         `)
-        .or(`name.ilike.%${searchTerm}%,jugendamt.ilike.%${searchTerm}%,mail.ilike.%${searchTerm}%`)
         .order('erstellt_am', { ascending: false })
         .limit(limit)
+
+      // Nur filtern wenn ein Suchterm vorhanden ist
+      if (searchTerm && searchTerm.length > 0) {
+        contactsQuery = contactsQuery.or(`name.ilike.%${searchTerm}%,jugendamt.ilike.%${searchTerm}%,mail.ilike.%${searchTerm}%`)
+      }
+
+      const { data: contacts, error: contactsError } = await contactsQuery
 
       if (!contactsError && contacts) {
         contacts.forEach(contact => {
