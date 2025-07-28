@@ -48,23 +48,30 @@ const getNavigationItems = (userRole, hasPermission) => {
     { name: 'Meine Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['helper'] },
     { name: 'Meine Services', href: '/services', icon: ClockIcon, roles: ['helper'] },
     { name: 'Urlaub', href: '/vacation', icon: CalendarDaysIcon, roles: ['helper'] },
-    { name: 'Profil', href: '/settings', icon: UserCircleIcon, roles: ['helper'] }
+    { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['helper'] }
   ]
 
   const jugendamtItems = [
     { name: 'Unsere Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['jugendamt'] },
     { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['jugendamt'] },
-    { name: 'Freigaben', href: '/billing', icon: CurrencyEuroIcon, roles: ['jugendamt'] }
+    { name: 'Freigaben', href: '/billing', icon: CurrencyEuroIcon, roles: ['jugendamt'] },
+    { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['jugendamt'] }
   ]
 
-  let allItems = [...baseItems]
+  const jugendamtUnverifiziertItems = [
+    { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['jugendamt_unverifiziert'] }
+  ]
+
+  let allItems = []
   
   if (userRole === 'admin') {
-    allItems = [...allItems, ...adminItems]
+    allItems = [...baseItems, ...adminItems]
   } else if (userRole === 'helper') {
-    allItems = [...allItems, ...helperItems]
+    allItems = [...baseItems, ...helperItems]
   } else if (userRole === 'jugendamt') {
-    allItems = [...allItems, ...jugendamtItems]
+    allItems = [...baseItems, ...jugendamtItems]
+  } else if (userRole === 'jugendamt_unverifiziert') {
+    allItems = [...jugendamtUnverifiziertItems] // Only profile access, no dashboard
   }
 
   return allItems.filter(item => item.roles.includes(userRole))
@@ -150,6 +157,7 @@ export default function Layout({ children }) {
       case 'admin': return 'Administrator'
       case 'helper': return 'Helfer'
       case 'jugendamt': return 'Jugendamt'
+      case 'jugendamt_unverifiziert': return 'Jugendamt (unverifiziert)'
       default: return 'Benutzer'
     }
   }
