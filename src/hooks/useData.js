@@ -755,3 +755,91 @@ export function useLocalStorage(key, initialValue) {
 
   return [storedValue, setValue]
 }
+
+// Vacation Hooks
+export function useVacations(filters = {}) {
+  const { userProfile, userRole } = useAuth()
+  const userId = userProfile?.helfer_id || userProfile?.ansprechpartner_id
+
+  const queryParams = new URLSearchParams()
+  if (userId) queryParams.append('userId', userId)
+  if (userRole) queryParams.append('userRole', userRole)
+  
+  // Add filters
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) queryParams.append(key, value)
+  })
+
+  const { data, error, mutate } = useSWR(
+    userId || userRole === 'admin' ? `/api/urlaube?${queryParams.toString()}` : null,
+    simpleFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true
+    }
+  )
+
+  const stats = useMemo(() => {
+    if (!data || !Array.isArray(data)) return {
+      total: 0,
+      approved: 0,
+      pending: 0,
+      upcoming: 0
+    }
+
+    const now = new Date()
+    return {
+      total: data.length,
+      approved: data.filter(v => v.approved).length,
+      pending: data.filter(v => !v.approved).length,
+      upcoming: data.filter(v => new Date(v.fromDate) > now).length
+    }
+  }, [data])
+
+  return {
+    vacations: data || [],
+    stats,
+    isLoading: !error && !data,
+    error,
+    refresh: mutate
+  }
+}
+
+export function useCreateVacation() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const createVacation = useCallback(async (vacationData) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/urlaube', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vacationData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Fehler beim Erstellen des Urlaubs')
+      }
+
+      const result = await response.json()
+      return result
+    } catch (err) {
+      setError(err.message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  return {
+    createVacation,
+    isLoading,
+    error
+  }
+}

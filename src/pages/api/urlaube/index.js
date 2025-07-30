@@ -107,13 +107,25 @@ async function createVacation(req, res) {
       von_datum,
       bis_datum,
       vertretung,
-      notiz,
-      erstellt_von
+      notiz
     } = req.body
+
+    // Validate required fields
+    if (!helfer_id) {
+      return res.status(400).json({ error: 'helfer_id is required' })
+    }
+
+    if (!von_datum || !bis_datum) {
+      return res.status(400).json({ error: 'Start and end dates are required' })
+    }
 
     // Validate dates
     const fromDate = new Date(von_datum)
     const toDate = new Date(bis_datum)
+    
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format' })
+    }
     
     if (fromDate >= toDate) {
       return res.status(400).json({ error: 'End date must be after start date' })
@@ -124,27 +136,40 @@ async function createVacation(req, res) {
     }
 
     // Check for overlapping vacations
-    const { data: overlapping } = await supabase
+    const { data: overlapping, error: overlapError } = await supabase
       .from('urlaube')
       .select('urlaub_id')
       .eq('helfer_id', helfer_id)
       .or(`von_datum.lte.${bis_datum},bis_datum.gte.${von_datum}`)
 
+    if (overlapError) {
+      console.error('Error checking overlapping vacations:', overlapError)
+      return res.status(500).json({ error: 'Error checking overlapping vacations' })
+    }
+
     if (overlapping && overlapping.length > 0) {
       return res.status(400).json({ error: 'Vacation period overlaps with existing vacation' })
     }
 
+    // Prepare insert data
+    const insertData = {
+      helfer_id,
+      von_datum,
+      bis_datum,
+      notiz: notiz || null,
+      freigegeben: false // Always starts as not approved
+    }
+
+    // Add vertretung if provided
+    if (vertretung && vertretung.trim() !== '') {
+      insertData.vertretung = vertretung
+    }
+
+    console.log('Inserting vacation data:', insertData)
+
     const { data: newVacation, error } = await supabase
       .from('urlaube')
-      .insert({
-        helfer_id,
-        von_datum,
-        bis_datum,
-        vertretung,
-        notiz,
-        freigegeben: false, // Always starts as not approved
-        erstellt_von
-      })
+      .insert(insertData)
       .select(`
         *,
         helfer!urlaube_helfer_id_fkey(
@@ -162,7 +187,10 @@ async function createVacation(req, res) {
       `)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase error:', error)
+      throw error
+    }
 
     // Transform response
     const days = Math.ceil((new Date(newVacation.bis_datum) - new Date(newVacation.von_datum)) / (1000 * 60 * 60 * 24)) + 1
