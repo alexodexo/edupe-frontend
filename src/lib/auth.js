@@ -164,7 +164,11 @@ export function AuthProvider({ children }) {
         'edit_helpers',
         'view_ansprechpartner',
         'create_ansprechpartner',
-        'edit_ansprechpartner'
+        'edit_ansprechpartner',
+        'view_vacations',
+        'create_vacations',
+        'edit_vacations',
+        'delete_vacations'
       ],
       jugendamt: [
         'view_own_cases', 

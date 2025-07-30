@@ -39,6 +39,7 @@ const getNavigationItems = (userRole, hasPermission) => {
     { name: 'Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['admin', 'helper', 'jugendamt'] },
     { name: 'Helfer', href: '/helpers', icon: UsersIcon, roles: ['admin'] },
     { name: 'Ansprechpartner', href: '/ansprechpartner', icon: UserGroupIcon, roles: ['admin'] },
+    { name: 'Urlaube', href: '/urlaube', icon: CalendarDaysIcon, roles: ['admin'] },
     { name: 'Berichte', href: '/reports', icon: DocumentTextIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Abrechnungen', href: '/billing', icon: CurrencyEuroIcon, roles: ['admin', 'jugendamt'] },
     { name: 'Einstellungen', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] }
@@ -47,7 +48,7 @@ const getNavigationItems = (userRole, hasPermission) => {
   const helperItems = [
     { name: 'Meine Fälle', href: '/cases', icon: ClipboardDocumentListIcon, roles: ['helper'] },
     { name: 'Meine Services', href: '/services', icon: ClockIcon, roles: ['helper'] },
-    { name: 'Urlaub', href: '/vacation', icon: CalendarDaysIcon, roles: ['helper'] },
+    { name: 'Urlaube', href: '/urlaube', icon: CalendarDaysIcon, roles: ['helper'] },
     { name: 'Profil', href: '/profile', icon: UserCircleIcon, roles: ['helper'] }
   ]
 
