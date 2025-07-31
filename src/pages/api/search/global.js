@@ -270,7 +270,7 @@ export default async function handler(req, res) {
             type: 'contact',
             title: contact.name,
             subtitle: `${contact.jugendamt} • ${contact.mail || contact.telefon || 'Kein Kontakt'}`,
-            href: `/contacts/${contact.ansprechpartner_id}`,
+            href: `/ansprechpartner/${contact.ansprechpartner_id}`,
             icon: 'UserCircleIcon',
             color: 'text-gray-600',
             bgColor: 'bg-gray-50',

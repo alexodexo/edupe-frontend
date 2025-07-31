@@ -151,6 +151,9 @@ async function createService(req, res) {
     const startzeit = new Date(`${date}T${startTime}:00`)
     const endzeit = new Date(`${date}T${endTime}:00`)
 
+    // Ensure notiz is never null (database constraint)
+    const safeNotiz = notiz && notiz.trim() ? notiz.trim() : 'Keine Beschreibung angegeben'
+
     const { data: newService, error } = await supabase
       .from('leistungen')
       .insert({
@@ -159,8 +162,8 @@ async function createService(req, res) {
         startzeit: startzeit.toISOString(),
         endzeit: endzeit.toISOString(),
         typ: typ || 'with_client_face_to_face',
-        standort,
-        notiz,
+        standort: standort || null, // standort can be null
+        notiz: safeNotiz, // Ensure notiz is never null
         freigegeben_flag: false, // Always starts as not approved
         erstellt_von
       })

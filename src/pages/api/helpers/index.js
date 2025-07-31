@@ -63,7 +63,7 @@ async function getHelpers(req, res) {
     // Transform data to match frontend expectations
     const transformedHelpers = helpers.map(helper => {
       const activeCases = helper.helfer_fall?.filter(hf =>
-        hf.aktiv && hf.faelle?.status === 'in_bearbeitung'
+        hf.aktiv && hf.faelle && !['abgeschlossen', 'abgelehnt', 'storniert'].includes(hf.faelle.status)
       ) || []
 
       const services = helper.leistungen || []
@@ -121,6 +121,17 @@ async function getHelpers(req, res) {
         rating: 4.8, // This could be calculated from feedback
         totalCases: helper.helfer_fall?.length || 0,
         activeCases: activeCases.length,
+        assignedCases: activeCases.map(hf => ({
+          id: hf.faelle.fall_id,
+          caseNumber: hf.faelle.aktenzeichen,
+          firstName: hf.faelle.vorname,
+          lastName: hf.faelle.nachname,
+          status: hf.faelle.status,
+          address: hf.faelle.strasse,
+          zipCode: hf.faelle.plz,
+          city: hf.faelle.stadt,
+          school: hf.faelle.schule_oder_kita
+        })),
         totalHours: Math.round(totalHours * 10) / 10,
         thisMonthHours: Math.round(thisMonthHours * 10) / 10,
         thisMonthRevenue: thisMonthHours * 25.50, // Default rate
