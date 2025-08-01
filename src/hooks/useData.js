@@ -433,86 +433,76 @@ export function useServiceApproval() {
 }
 
 // Dashboard Data Hook
-export function useDashboardData() {
-  const { cases, stats: caseStats } = useCases()
-  const { helpers, stats: helperStats } = useHelpers()
-  const { services, stats: serviceStats } = useServices()
+export function useDashboardData(timeRange = 'week') {
+  const [dashboardData, setDashboardData] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const recentActivities = useMemo(() => {
-    const activities = []
-
-    // Add recent cases
-    if (cases) {
-      cases.slice(0, 3).forEach(case_ => {
-        activities.push({
-          id: `case-${case_.id}`,
-          type: 'case_created',
-          title: `Neuer Fall: ${case_.title}`,
-          description: case_.client?.school || '',
-          time: case_.createdAt,
-          icon: 'case',
-          color: 'blue'
-        })
-      })
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const response = await fetch(`/api/dashboard?timeRange=${timeRange}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+      
+      const data = await response.json()
+      setDashboardData(data)
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err)
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
     }
+  }, [timeRange])
 
-    // Add recent services
-    if (services) {
-      services.slice(0, 5).forEach(service => {
-        activities.push({
-          id: `service-${service.id}`,
-          type: 'service_completed',
-          title: `Service abgeschlossen: ${service.duration}h`,
-          description: `${service.helper?.vorname} ${service.helper?.nachname} • ${service.case?.aktenzeichen}`,
-          time: service.createdAt,
-          icon: 'service',
-          color: 'green'
-        })
-      })
-    }
-
-    return activities
-      .sort((a, b) => new Date(b.time) - new Date(a.time))
-      .slice(0, 8)
-  }, [cases, services])
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   const urgentNotifications = useMemo(() => {
+    if (!dashboardData) return []
+    
     const notifications = []
 
     // Check for pending approvals
-    if (serviceStats.pending > 0) {
+    if (dashboardData.services?.pending > 0) {
       notifications.push({
         id: 'pending-services',
         type: 'pending_approvals',
-        title: `${serviceStats.pending} Services zur Freigabe`,
+        title: `${dashboardData.services.pending} Services zur Freigabe`,
         description: 'Stundeneinträge warten auf Genehmigung',
         priority: 'medium'
       })
     }
 
     // Check for compliance issues
-    if (helperStats.complianceIssues > 0) {
+    if (dashboardData.helpers?.complianceIssues > 0) {
       notifications.push({
         id: 'compliance-issues',
         type: 'compliance',
-        title: `${helperStats.complianceIssues} Helfer mit Compliance-Problemen`,
+        title: `${dashboardData.helpers.complianceIssues} Helfer mit Compliance-Problemen`,
         description: 'Dokumente müssen überprüft werden',
         priority: 'high'
       })
     }
 
     return notifications
-  }, [serviceStats.pending, helperStats.complianceIssues])
+  }, [dashboardData])
 
   return {
-    stats: {
-      cases: caseStats,
-      helpers: helperStats,
-      services: serviceStats
-    },
-    recentActivities,
+    stats: dashboardData ? {
+      cases: dashboardData.cases,
+      helpers: dashboardData.helpers,
+      services: dashboardData.services
+    } : null,
+    recentActivities: dashboardData?.recentActivities || [],
     urgentNotifications,
-    isLoading: !cases.length && !helpers.length && !services.length
+    isLoading,
+    error,
+    refresh: fetchDashboardData
   }
 }
 
