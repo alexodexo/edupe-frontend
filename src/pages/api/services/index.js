@@ -38,19 +38,24 @@ async function getServices(req, res) {
         )
       `)
 
-    // Apply role-based filtering
-    if (userRole === 'helper' && userId) {
-      query = query.eq('helfer_id', userId)
-    } else if (userRole === 'jugendamt' && userId) {
-      // Get jugendamt name for this user
-      const { data: jugendamtUser } = await supabase
-        .from('jugendamt_ansprechpartner')
-        .select('jugendamt')
-        .eq('ansprechpartner_id', userId)
-        .single()
-      
-      if (jugendamtUser) {
-        query = query.eq('faelle.schule_oder_kita', jugendamtUser.jugendamt)
+    // Apply specific case filter first (takes priority)
+    if (fall_id) {
+      query = query.eq('fall_id', fall_id)
+    } else {
+      // Apply role-based filtering only if no specific case requested
+      if (userRole === 'helper' && userId) {
+        query = query.eq('helfer_id', userId)
+      } else if (userRole === 'jugendamt' && userId) {
+        // Get jugendamt name for this user
+        const { data: jugendamtUser } = await supabase
+          .from('jugendamt_ansprechpartner')
+          .select('jugendamt')
+          .eq('ansprechpartner_id', userId)
+          .single()
+        
+        if (jugendamtUser) {
+          query = query.eq('faelle.schule_oder_kita', jugendamtUser.jugendamt)
+        }
       }
     }
 
@@ -62,12 +67,9 @@ async function getServices(req, res) {
       }
     }
 
-    if (helfer_id) {
+    // Additional filters (only apply if not already filtered by fall_id above)
+    if (helfer_id && !fall_id) {
       query = query.eq('helfer_id', helfer_id)
-    }
-
-    if (fall_id) {
-      query = query.eq('fall_id', fall_id)
     }
 
     const { data: services, error } = await query.order('startzeit', { ascending: false })

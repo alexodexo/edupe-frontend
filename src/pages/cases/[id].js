@@ -41,16 +41,15 @@ export default function CaseDetail() {
   const { hasPermission } = useAuth()
   const { case: caseData, isLoading, error } = useCase(id)
   const { helpers } = useHelpers()
-  const { services } = useServices()
+  const { services } = useServices({ fall_id: id }) // Load services for this specific case
 
   const [activeTab, setActiveTab] = useState('overview')
 
-  // Get services for this case
+  // Get services for this case (already filtered by API with fall_id parameter)
   const caseServices = useMemo(() => {
-    if (!caseData || !services) return []
-    return services.filter(service => service.caseId === caseData.id)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  }, [caseData, services])
+    if (!services) return []
+    return services.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  }, [services])
 
   // Get last service for travel time validation
   const lastService = useMemo(() => {
@@ -226,7 +225,7 @@ export default function CaseDetail() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-semibold text-blue-600">{caseServices.length}</p>
-                <p className="text-sm text-gray-600">Services</p>
+                <p className="text-sm text-gray-600">Leistungen</p>
               </div>
               <div className="text-center">
                 <p className="text-xl font-semibold text-orange-600">
@@ -258,7 +257,7 @@ export default function CaseDetail() {
             <div className="flex space-x-8 border-b border-gray-200">
               {[
                 { id: 'overview', label: 'Übersicht', icon: UserIcon },
-                { id: 'services', label: 'Services', icon: ClockIcon },
+                { id: 'services', label: 'Leistungen', icon: ClockIcon },
                 { id: 'statistics', label: 'Statistiken', icon: ChartBarIcon },
                 { id: 'documents', label: 'Dokumente', icon: DocumentTextIcon }
               ].map((tab) => (
@@ -418,7 +417,7 @@ export default function CaseDetail() {
             <div className="lg:col-span-3">
               <div className="card">
                 <div className="p-4 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-900">Geleistete Services</h3>
+                  <h3 className="font-semibold text-gray-900">Geleistete Leistungen</h3>
                 </div>
                 <div className="max-h-96 overflow-auto">
                   {caseServices.length > 0 ? (
@@ -461,7 +460,7 @@ export default function CaseDetail() {
                   ) : (
                     <div className="p-8 text-center">
                       <ClockIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">Noch keine Services gebucht</p>
+                      <p className="text-gray-600">Noch keine Leistungen gebucht</p>
                     </div>
                   )}
                 </div>
